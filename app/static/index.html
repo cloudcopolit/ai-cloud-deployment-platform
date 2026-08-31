@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Code Architect V0</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
+    window.mermaid = mermaid;
+  </script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">V0 PROTOTYPE</p>
+      <h1>Code Architect</h1>
+      <p class="lede">Upload a repository, describe your goal, and receive a structured architecture map with evidence and recommendations.</p>
+    </header>
+
+    <section class="panel">
+      <form id="analyze-form">
+        <label>
+          Repository ZIP
+          <input id="repository" name="repository" type="file" accept=".zip" required />
+        </label>
+        <label>
+          What should the architect focus on?
+          <textarea id="prompt" name="prompt" rows="4" placeholder="Example: Analyze the current architecture. Focus on deployment readiness, bottlenecks, and separation of concerns."></textarea>
+        </label>
+        <button id="submit" type="submit">Analyze architecture</button>
+      </form>
+      <p id="status" class="status"></p>
+    </section>
+
+    <section id="results" class="hidden">
+      <div class="grid">
+        <article class="panel">
+          <p class="eyebrow">SUMMARY</p>
+          <h2 id="project-name"></h2>
+          <p id="summary"></p>
+          <div id="stack" class="chips"></div>
+        </article>
+
+        <article class="panel">
+          <p class="eyebrow">ARCHITECTURE</p>
+          <div id="diagram" class="diagram"></div>
+        </article>
+      </div>
+
+      <div class="grid">
+        <article class="panel">
+          <p class="eyebrow">COMPONENTS</p>
+          <div id="components"></div>
+        </article>
+
+        <article class="panel">
+          <p class="eyebrow">RECOMMENDATIONS</p>
+          <div id="recommendations"></div>
+        </article>
+      </div>
+
+      <article class="panel">
+        <p class="eyebrow">ASSUMPTIONS / UNCERTAINTY</p>
+        <ul id="assumptions"></ul>
+      </article>
+
+      <details class="panel">
+        <summary>Raw architecture JSON</summary>
+        <pre id="raw-json"></pre>
+      </details>
+    </section>
+  </main>
+
+<script>
+const form = document.getElementById("analyze-form");
+const statusEl = document.getElementById("status");
+const results = document.getElementById("results");
+const submit = document.getElementById("submit");
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function priorityBadge(priority) {
+  return `<span class="priority ${escapeHtml(priority)}">${escapeHtml(priority)}</span>`;
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  results.classList.add("hidden");
+  statusEl.textContent = "Analyzing repository…";
+  submit.disabled = true;
+
+  const data = new FormData(form);
+
+  try {
+    const response = await fetch("/api/analyze", { method: "POST", body: data });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Analysis failed.");
+
+    document.getElementById("project-name").textContent = payload.project_name;
+    document.getElementById("summary").textContent = payload.summary;
+    document.getElementById("stack").innerHTML = payload.detected_stack
+      .map(item => `<span class="chip">${escapeHtml(item)}</span>`).join("");
+
+    document.getElementById("components").innerHTML = payload.components.map(c => `
+      <div class="item">
+        <div class="item-title">${escapeHtml(c.name)} <span class="muted">· ${escapeHtml(c.technology)}</span></div>
+        <p>${escapeHtml(c.description)}</p>
+        ${c.evidence?.length ? `<p class="evidence">Evidence: ${c.evidence.map(escapeHtml).join(", ")}</p>` : ""}
+      </div>
+    `).join("");
+
+    document.getElementById("recommendations").innerHTML = payload.recommendations.map(r => `
+      <div class="item">
+        <div class="item-title">${priorityBadge(r.priority)} ${escapeHtml(r.title)}</div>
+        <p>${escapeHtml(r.rationale)}</p>
+      </div>
+    `).join("");
+
+    document.getElementById("assumptions").innerHTML = (payload.assumptions || [])
+      .map(a => `<li>${escapeHtml(a)}</li>`).join("") || "<li>None reported.</li>";
+
+    document.getElementById("raw-json").textContent = JSON.stringify(payload, null, 2);
+
+    const diagram = document.getElementById("diagram");
+    diagram.innerHTML = "";
+    try {
+      const id = `diagram-${Date.now()}`;
+      const rendered = await window.mermaid.render(id, payload.mermaid);
+      diagram.innerHTML = rendered.svg;
+    } catch (err) {
+      diagram.innerHTML = `<pre>${escapeHtml(payload.mermaid)}</pre>`;
+    }
+
+    results.classList.remove("hidden");
+    statusEl.textContent = "Analysis complete.";
+  } catch (error) {
+    statusEl.textContent = error.message;
+  } finally {
+    submit.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
