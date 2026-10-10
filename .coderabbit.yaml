@@ -1,0 +1,43 @@
+language: "en-US"
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "dev"
+      - "testing"
+      - "main"
+  path_instructions:
+    - path: "backend/**/*.py"
+      instructions: |
+        Review Python backend changes for correctness, input validation, error handling,
+        API contract consistency, security, and test coverage. Do not assume planned
+        services or integrations exist unless they are present in the code.
+    - path: "ai/**/*.py"
+      instructions: |
+        Review AI and agent changes for untrusted model output, tool authorization,
+        prompt injection boundaries, bounded retries, explicit failure handling,
+        deterministic validation, and tests. Never treat model output as authorization.
+    - path: "frontend/**"
+      instructions: |
+        Review React changes for TypeScript safety, accessibility, user-visible error
+        handling, secure handling of credentials and user input, and component tests.
+    - path: "infrastructure/terraform/**/*.tf"
+      instructions: |
+        Review Terraform changes for least-privilege IAM, public exposure, encryption,
+        secret handling, unsafe defaults, destructive changes, and environment isolation.
+        Do not approve a deployment based only on a successful plan.
+    - path: ".github/workflows/**"
+      instructions: |
+        Review GitHub Actions changes for least-privilege permissions, untrusted event
+        data in shell commands, pinned or controlled actions, secret exposure, and
+        accidental production deployment from non-production branches.
+
+chat:
+  auto_reply: true
