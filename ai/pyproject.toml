@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudpilot-ai"
+version = "0.1.0"
+description = "CloudPilot AI analysis and agent orchestration engine"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "agents",
+    "agents.*",
+    "llm",
+    "llm.*",
+    "prompts",
+    "prompts.*",
+    "tools",
+    "tools.*",
+    "workflows",
+    "workflows.*",
+    "evals",
+    "evals.*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "ai/tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"

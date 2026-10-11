@@ -75,3 +75,5 @@ docker-compose.override.yml
 *.tmp
 *.temp
 *.bak
+
+ai/cloudpilot_ai.egg-info/
