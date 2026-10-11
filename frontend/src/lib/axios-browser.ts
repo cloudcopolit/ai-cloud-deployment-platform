@@ -1,49 +1,23 @@
+/* eslint-disable @next/next/no-location-assign-relative-destination */
 'use client'
 
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosInstance } from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
-
-export const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true
+export const api: AxiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000',
+  withCredentials: true, // ← essential: sends access_token cookie
+  headers: { 'Content-Type': 'application/json' }
 })
 
-// Single-flight refresh: if 5 requests hit 401 at once, only 1 refresh call fires
-let refreshing: Promise<void> | null = null
-
-async function refreshSession() {
-  if (!refreshing) {
-    refreshing = axios
-      .post(`${API_URL}/auth/refresh`, null, { withCredentials: true })
-      .then(() => undefined)
-      .finally(() => {
-        refreshing = null
-      })
-  }
-  return refreshing
-}
-
 api.interceptors.response.use(
-  (r) => r,
-  async (error: AxiosError) => {
-    const original = error.config as InternalAxiosRequestConfig & { _retried?: boolean }
-
-    if (
-      error.response?.status === 401 &&
-      !original._retried &&
-      !original.url?.includes('/auth/refresh') &&
-      typeof window !== 'undefined'
-    ) {
-      original._retried = true
-      try {
-        await refreshSession()
-        return api(original) // retry
-      } catch {
+  (res) => res,
+  (error: AxiosError) => {
+    // No refresh endpoint in the backend → on 401, bounce to login
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
     }
-
     return Promise.reject(error)
   }
 )

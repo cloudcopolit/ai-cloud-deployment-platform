@@ -1,36 +1,115 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Tech stack
 
-## Getting Started
+| Part            | Technology                                       |
+| --------------- | ------------------------------------------------ |
+| Framework       | Next.js 16 (App Router, Turbopack)               |
+| Language        | TypeScript (strict)                              |
+| Styling         | Tailwind CSS v4                                  |
+| Components      | shadcn/ui                                        |
+| Icons           | Lucide                                           |
+| Validation      | Zod                                              |
+| HTTP client     | Axios (browser) + native `fetch` (server)        |
+| Auth            | Cookie-based JWT — issued by the FastAPI backend |
+| Package manager | pnpm                                             |
 
-First, run the development server:
+Not used: `next-auth`, tokens in `localStorage`, refresh tokens.
+
+---
+
+## Prerequisites
+
+- Node.js 20.11+
+- pnpm (`npm i -g pnpm`)
+- Backend running at `http://localhost:8000`
+
+---
+
+## Environment
+
+Copy `.env.example` to `.env.local`:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Variable              | Example                 | Purpose                                 |
+| --------------------- | ----------------------- | --------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Used in the browser (login link, Axios) |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> Use `localhost` everywhere, never `127.0.0.1`. Cookies are host-bound.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## How to run
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm install
+pnpm dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open http://localhost:3000.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Make sure the backend is running in a separate terminal (see backend README).
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## What we implemented
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Area                                                | Status |
+| --------------------------------------------------- | ------ |
+| Next.js 16 + TypeScript + Tailwind v4 scaffold      | Done   |
+| shadcn/ui setup                                     | Done   |
+| Zod schemas matching FastAPI responses              | Done   |
+| Login page (`/login`) with GitHub button            | Done   |
+| Error banner for `?error=github_failed`             | Done   |
+| Route protection via `proxy.ts`                     | Done   |
+| Server-side session (`getCurrentUser`)              | Done   |
+| Protected dashboard layout + user menu              | Done   |
+| Logout flow                                         | Done   |
+| Suspense boundaries for Next.js 16 Cache Components | Done   |
+
+### Planned
+
+- Projects list page
+- Repository connection (GitHub App)
+- Architecture viewer / editor
+- Deployment history
+- Team settings
+- Theme toggle
+
+---
+
+## Auth flow (short version)
+
+1. User visits `/dashboard` → proxy redirects to `/login`
+2. Click "Continue with GitHub" → full-page link to `http://localhost:8000/auth/github/login`
+3. Backend does OAuth, sets `access_token` HttpOnly cookie, redirects to `/dashboard`
+4. Middleware sees cookie → allows
+5. Layout calls `/auth/me` → renders user
+
+**On failure:** backend redirects to `/login?error=github_failed`.
+
+---
+
+## Scripts
+
+| Command      | Purpose                |
+| ------------ | ---------------------- |
+| `pnpm dev`   | Dev server (Turbopack) |
+| `pnpm build` | Production build       |
+| `pnpm start` | Run production build   |
+| `pnpm lint`  | ESLint                 |
+
+Add a shadcn component:
+
+```bash
+pnpm dlx shadcn@latest add <component>
+```
+
+---
+
+## Notes
+
+- Next.js 16 requires dynamic reads (`searchParams`, `cookies()`, uncached `fetch`) to live inside `<Suspense>`. Static shell outside, dynamic content inside.
+- The `access_token` cookie is HttpOnly — JavaScript cannot read it. Get user data via `/auth/me`, never by decoding the JWT.
+- No refresh token yet — JWT expires after 30 minutes; user re-logs in.
