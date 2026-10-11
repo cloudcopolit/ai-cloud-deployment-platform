@@ -1,1 +1,9 @@
-from app.models.user import User  # noqa: F401  (imported so Alembic can see it)
+from app.models.user import User  # noqa: F401
+from app.models.team import Team  # noqa: F401
+from app.models.team_member import TeamMember  # noqa: F401
+from app.models.plan import Plan  # noqa: F401
+from app.models.subscription import Subscription  # noqa: F401
+from app.models.project import Project  # noqa: F401
+from app.models.repository import Repository  # noqa: F401
+from app.models.branch import Branch  # noqa: F401
+from app.models.commit import Commit  # noqa: F401
