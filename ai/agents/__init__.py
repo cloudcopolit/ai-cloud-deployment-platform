@@ -12,6 +12,10 @@ from agents.code_analyzer.repository_analyzer import (
     RepositoryAnalysis,
     analyze_repository,
 )
+from agents.validator import (
+    ValidationReport,
+    ValidatorAgent,
+)
 
 __all__ = [
     "AnalysisReport",
@@ -20,6 +24,8 @@ __all__ = [
     "FileAnalysis",
     "ImportFact",
     "RepositoryAnalysis",
+    "ValidationReport",
+    "ValidatorAgent",
     "analyze_python_sources",
     "analyze_repository",
 ]
