@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from agents.architecture.agent import ArchitectureAgent
 from agents.architecture.models import ArchitectureProposal
@@ -13,8 +13,10 @@ from agents.code_analyzer import (
 )
 from workflows.repository import RepoSnapshot
 
+from agents.validator import ValidationReport, ValidatorAgent
+
 ValidationStatus = Literal["not_run", "passed", "failed", "error"]
-PipelineStage = Literal["analysis", "architecture"]
+PipelineStage = Literal["analysis", "architecture", "validation"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +27,7 @@ class OrchestrationResult:
     validation_status: ValidationStatus = "not_run"
     repository_analysis: RepositoryAnalysis | None = None
     architecture_proposal: ArchitectureProposal | None = None
+    validation_report: ValidationReport | None = None
     failed_stage: PipelineStage | None = None
     error: str | None = None
 
@@ -62,9 +65,11 @@ class Orchestrator:
         self,
         code_analyzer: CodeAnalyzerAgent | None = None,
         architecture_agent: ArchitectureAgent | None = None,
+        validator_agent: ValidatorAgent | None = None,
     ) -> None:
         self._code_analyzer = code_analyzer or CodeAnalyzerAgent()
         self._architecture_agent = architecture_agent
+        self._validator_agent = validator_agent
 
     def run(self, sources: Mapping[str, str]) -> OrchestrationResult:
         """Analyze Python sources using the existing interface."""
@@ -81,8 +86,10 @@ class Orchestrator:
         *,
         root_name: str = "",
         requirements: str = "",
+        repo_path: str | None = None,
+        validation_options: dict[str, Any] | None = None,
     ) -> OrchestrationResult:
-        """Analyze a repository and optionally propose its architecture."""
+        """Analyze a repository and optionally propose its architecture and validate execution."""
         try:
             repository_analysis = self._code_analyzer.analyze_repository(
                 snapshot,
@@ -96,11 +103,30 @@ class Orchestrator:
                 error=self._error_message(exc),
             )
 
+        validation_report: ValidationReport | None = None
+        validation_status: ValidationStatus = "not_run"
+        if repo_path is not None and self._validator_agent is not None:
+            try:
+                opts = validation_options or {}
+                validation_report = self._validator_agent.run(
+                    repo_path, repository_analysis, **opts
+                )
+                validation_status = validation_report.overall_status
+            except Exception as exc:
+                return OrchestrationResult(
+                    analysis=repository_analysis.python_analysis,
+                    validation_status="error",
+                    repository_analysis=repository_analysis,
+                    failed_stage="validation",
+                    error=self._error_message(exc),
+                )
+
         if self._architecture_agent is None:
             return OrchestrationResult(
                 analysis=repository_analysis.python_analysis,
-                validation_status="not_run",
+                validation_status=validation_status,
                 repository_analysis=repository_analysis,
+                validation_report=validation_report,
             )
 
         try:
@@ -111,17 +137,19 @@ class Orchestrator:
         except Exception as exc:
             return OrchestrationResult(
                 analysis=repository_analysis.python_analysis,
-                validation_status="not_run",
+                validation_status=validation_status,
                 repository_analysis=repository_analysis,
+                validation_report=validation_report,
                 failed_stage="architecture",
                 error=self._error_message(exc),
             )
 
         return OrchestrationResult(
             analysis=repository_analysis.python_analysis,
-            validation_status="not_run",
+            validation_status=validation_status,
             repository_analysis=repository_analysis,
             architecture_proposal=architecture_proposal,
+            validation_report=validation_report,
         )
 
     @staticmethod
