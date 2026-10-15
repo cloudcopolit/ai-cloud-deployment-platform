@@ -1,0 +1,85 @@
+# Shared base for every CloudPilot environment. Do not run it on its own;
+# always combine it with an environment file (see docs/environments.md):
+#
+#   development: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#   testing:     docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-tests
+#   production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file <secrets> up -d
+#
+# Values come from the environment or an env file. Required values have no
+# defaults here, so a missing secret stops Compose instead of falling back to
+# an insecure value.
+
+name: cloudpilot
+
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+  ENVIRONMENT: ${ENVIRONMENT:?Set ENVIRONMENT (development or production)}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?Set GITHUB_CLIENT_ID}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?Set GITHUB_CLIENT_SECRET}
+  GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:?Set GITHUB_REDIRECT_URI}
+  FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL}
+
+services:
+  db:
+    image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # One-off job: applies Alembic migrations before the API starts.
+  migrate:
+    build:
+      context: ./backend
+      target: runtime
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment: *backend-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/db', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?Set PUBLIC_API_URL (API address the browser uses)}
+    environment:
+      # Server-side calls stay on the Compose network.
+      API_INTERNAL_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+volumes:
+  db-data:

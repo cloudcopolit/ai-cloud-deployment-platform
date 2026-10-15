@@ -21,7 +21,21 @@ from pathlib import Path
 import yaml
 
 SKIP = ("**/tsconfig*.json", "tsconfig*.json")
-YamlLoader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
+class YamlLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # type: ignore[misc]
+    """Safe loader that accepts application-specific tags such as Compose's `!reset`."""
+
+
+def _untagged(loader: yaml.SafeLoader, _suffix: str, node: yaml.Node) -> object:
+    if isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    if isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_scalar(node)  # type: ignore[arg-type]
+
+
+YamlLoader.add_multi_constructor("!", _untagged)
 
 
 def repository_files() -> list[Path]:

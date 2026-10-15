@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers'
 import { UserSchema, type User } from '@/lib/validations/auth'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+/* Server-side calls may need a different address than the browser (e.g. http://backend:8000 in Docker). */
+const API_URL =
+  process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 /**
  * Server-side only. Forward the access_token cookie to FastAPI /auth/me.

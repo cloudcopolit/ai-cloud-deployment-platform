@@ -53,7 +53,8 @@
 | Backend API (`backend/`) | **Implemented:** FastAPI app, PostgreSQL schema for users, teams, plans, subscriptions, projects, repositories, branches and commits (Alembic migrations), idempotent seed script, GitHub OAuth sign-in, JWT in an HttpOnly cookie, CORS, development-only login. **Placeholder:** `analysis`, `deployments`, `projects`, `repositories` modules are empty. |
 | Frontend (`frontend/`) | **Implemented:** Next.js 16 app with login page, route protection (`src/proxy.ts`), server-side session lookup, and a protected dashboard layout with logout. **Planned:** projects, repository connection, architecture editor, deployment history. |
 | AI layer (`ai/`) | **Placeholder.** Agent, prompt, tool, and workflow directories are empty on `main`. A Code Architect prototype is in progress on a feature branch. See [ai/README.md](ai/README.md). |
-| Infrastructure (`infrastructure/`) | **Placeholder.** Terraform module and environment directories contain no configuration. The root `docker-compose.yml` is empty; the backend's local database is defined in [`backend/db.yml`](backend/db.yml). |
+| Containers (`docker-compose*.yml`) | **Implemented:** Dockerfiles for the backend and frontend (non-root) and Docker Compose environments for development (hot reload, seed data), testing (isolated, in-memory database), and production (read-only, secrets supplied externally). See [docs/environments.md](docs/environments.md). |
+| Infrastructure (`infrastructure/`) | **Placeholder.** Terraform module and environment directories contain no configuration; there is no cloud deployment. |
 | Tests | Backend: pytest suite (auth, OAuth client, CORS, seed, migrations) against PostgreSQL with a 90% coverage gate. Frontend: Vitest unit tests for route protection and API schemas. |
 | CI | GitHub Actions quality gates for every component, security scans, and workflow linting. See [Continuous integration](#continuous-integration). |
 
@@ -156,7 +157,9 @@ These technologies are part of the project plan, not current integrations:
 ├── infrastructure/
 │   └── terraform/           # modules/ and environments/ (dev, staging, prod) placeholders
 ├── ruff.toml                # Shared Python lint and format policy
-├── docker-compose.yml       # Empty placeholder; not runnable yet
+├── docker-compose.yml       # Shared Compose base; combine with an overlay below
+├── docker-compose.{dev,test,prod}.yml  # Environment overlays (docs/environments.md)
+├── .env.example             # Placeholder values for the dev/test Compose environments
 ├── CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md  LICENSE
 └── README.md
 ```
@@ -168,12 +171,19 @@ These technologies are part of the project plan, not current integrations:
 | Python | 3.12 ([`backend/.python-version`](backend/.python-version)) | Backend, AI projects |
 | Node.js | 24 LTS in CI ([`frontend/.nvmrc`](frontend/.nvmrc)); Next.js 16 needs ≥ 20.9 | Frontend |
 | pnpm | 12.4.1 (pinned by `packageManager` in `frontend/package.json`) | Frontend |
-| Docker with Compose | Any recent version | Local PostgreSQL (`backend/db.yml`) |
+| Docker with Compose | Compose v2.24+ | Compose environments; local PostgreSQL (`backend/db.yml`) |
 | A GitHub OAuth App | — | Sign-in (see the backend README) |
 
 ## Local development
 
-Full instructions live in the component READMEs; the short version:
+**Everything in Docker** (no local Python or Node needed), see [docs/environments.md](docs/environments.md):
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build   # http://localhost:3000
+```
+
+**Or run the components directly** (full instructions in the component READMEs):
 
 ```bash
 # Backend (from backend/)
@@ -223,7 +233,7 @@ Every workflow runs on pull requests targeting `dev`, `testing`, or `main`, on p
 | | `Backend tests` | pytest against a disposable PostgreSQL 16 service, ≥ 90% branch coverage, and Alembic checks (single head, downgrade/upgrade round trip, no model changes without a migration) |
 | [Frontend](.github/workflows/frontend.yml) | `Frontend checks` | `pnpm install --frozen-lockfile`, ESLint, TypeScript (after `next typegen`), Vitest, production build |
 | [AI](.github/workflows/ai.yml) | `AI checks` | Discovers every project under `ai/`, then per project: Ruff, mypy, offline pytest. Fails on Python code outside a project or projects without tests |
-| [Infrastructure](.github/workflows/infrastructure.yml) | `Infrastructure checks` | When present: `terraform fmt`, `init -backend=false` + `validate`, TFLint, Hadolint, `docker compose config`. Always: Trivy misconfiguration scan. Empty Compose files and missing Terraform are reported as notices |
+| [Infrastructure](.github/workflows/infrastructure.yml) | `Infrastructure checks` | When present: `terraform fmt`, `init -backend=false` + `validate`, TFLint, Hadolint, `docker compose config` (overlays merged with their base). Always: Trivy misconfiguration scan. Empty Compose files and missing Terraform are reported as notices |
 | [Security](.github/workflows/security.yml) | `Secret scan` | Gitleaks over the commits a PR introduces (full branch history on push and weekly) |
 | | `Dependency audit` | `pip-audit` for the backend and every AI project, `pnpm audit --audit-level high` for the frontend; also weekly |
 | [Repository](.github/workflows/repository.yml) | `Repository hygiene` | Whitespace errors, Ruff on CI scripts, JSON/YAML/TOML syntax, Markdown links and anchors, actionlint, zizmor workflow-security audit |
@@ -244,7 +254,7 @@ Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md), nev
 
 - No AI agents, orchestrator, prompts, tools, or workflows exist on `main` yet.
 - No Terraform configuration or cloud deployment exists; infrastructure checks currently only run the Trivy scan.
-- The root `docker-compose.yml` is empty. Only the backend database has a Compose definition ([`backend/db.yml`](backend/db.yml)).
+- The production Compose overlay targets a single host and expects you to provide TLS termination and database backups; there is no cloud deployment yet.
 - Backend `projects`, `repositories`, `analysis`, and `deployments` modules are empty placeholders; there is no refresh token yet.
 - The frontend has no formatter configured (ESLint only) and no component or end-to-end tests yet.
 - The repository is private on GitHub's Free plan, so branch protection, CodeQL code scanning, and dependency review are not available; see CONTRIBUTING.md for what that means for required checks.

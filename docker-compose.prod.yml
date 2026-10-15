@@ -1,0 +1,50 @@
+# Production overlay: no source mounts or development tools, read-only
+# containers, and only the frontend and API published, on localhost by default.
+# Put a TLS-terminating reverse proxy in front: with ENVIRONMENT=production the
+# auth cookies are `Secure` and require HTTPS.
+#
+# Secrets are never committed. Supply them from a file kept outside the
+# repository (or your secret manager's environment injection):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     --env-file /etc/cloudpilot/production.env up -d --build
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db:
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  migrate:
+    <<: *hardening
+    restart: "no"
+    tmpfs: [/tmp]
+
+  backend:
+    <<: *hardening
+    tmpfs: [/tmp]
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
+
+  frontend:
+    <<: *hardening
+    tmpfs:
+      - /tmp
+      - /app/.next/cache:uid=1000,gid=1000
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-3000}:3000"
