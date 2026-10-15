@@ -18,9 +18,9 @@ Not used: `next-auth`, tokens in `localStorage`, refresh tokens.
 
 ## Prerequisites
 
-- Node.js 20.11+
-- pnpm (`npm i -g pnpm`)
-- Backend running at `http://localhost:8000`
+- Node.js 24 LTS (the version CI uses, from `.nvmrc`; Next.js 16 requires at least 20.9)
+- pnpm (`npm i -g pnpm`); it switches to the version pinned in `package.json` (`packageManager`, currently 12.4.1)
+- Backend running at `http://localhost:8000` (only for `pnpm dev`; lint, tests, and `pnpm build` do not need it)
 
 ---
 
@@ -93,12 +93,18 @@ Make sure the backend is running in a separate terminal (see backend README).
 
 ## Scripts
 
-| Command      | Purpose                |
-| ------------ | ---------------------- |
-| `pnpm dev`   | Dev server (Turbopack) |
-| `pnpm build` | Production build       |
-| `pnpm start` | Run production build   |
-| `pnpm lint`  | ESLint                 |
+| Command          | Purpose                                                       |
+| ---------------- | ------------------------------------------------------------- |
+| `pnpm dev`       | Dev server (Turbopack)                                        |
+| `pnpm build`     | Production build                                              |
+| `pnpm start`     | Run production build                                          |
+| `pnpm lint`      | ESLint                                                        |
+| `pnpm typecheck` | Generate Next.js route/env types, then `tsc --noEmit`         |
+| `pnpm test`      | Vitest unit tests (`src/**/*.test.ts`)                        |
+
+CI (`Frontend checks`) runs `pnpm install --frozen-lockfile`, `lint`, `typecheck`, `test`, and `build` on every pull request. If you change dependencies, commit the updated `pnpm-lock.yaml`.
+
+Tests currently cover route protection in `src/proxy.ts` and the Zod schemas that mirror backend responses. No formatter (such as Prettier) is configured yet.
 
 Add a shadcn component:
 

@@ -18,7 +18,7 @@ CloudPilot connects to a GitHub repository, analyzes the application, proposes a
 | GitHub sign-in (OAuth) | Implemented |
 | JWT authentication in an HttpOnly cookie (also accepts `Authorization: Bearer`) | Implemented |
 | CORS for the Next.js frontend | Implemented |
-| Auth unit and API tests | Implemented |
+| Auth, seed, and migration tests (pytest, CI-enforced) | Implemented |
 | Create a personal team on first login | Planned (next) |
 | Team role checks (`require_team_role`) | Planned |
 | Projects, repositories (GitHub App), analysis modules | Planned |
@@ -38,7 +38,7 @@ CloudPilot connects to a GitHub repository, analyzes the application, proposes a
 | Validation / settings | Pydantic, pydantic-settings |
 | Authentication | GitHub OAuth for sign-in, PyJWT for tokens |
 | HTTP client | httpx |
-| Tests | pytest |
+| Tests and quality | pytest, Ruff (lint and format), mypy |
 | Local services | Docker Compose |
 | Frontend (separate team) | Next.js |
 
@@ -65,11 +65,13 @@ backend/
 │   └── modules/
 │       └── auth/                # router, service, schemas, dependencies
 ├── alembic/                     # Migrations (versions/ is filled by Alembic)
-├── tests/                       # pytest tests
-├── docker-compose.yml
+├── tests/                       # pytest tests (conftest.py sets up the test database)
+├── db.yml                       # Docker Compose file for the local PostgreSQL
 ├── alembic.ini
-├── pytest.ini
-├── requirements.txt
+├── pyproject.toml               # mypy, pytest, and coverage settings (lint rules: ../ruff.toml)
+├── requirements.txt             # Runtime dependencies (pinned)
+├── requirements-dev.txt         # Runtime + lint, type-check, test, and audit tools
+├── .python-version              # Python version used by CI
 ├── .env.example
 └── README.md
 ```
@@ -95,13 +97,13 @@ All commands run from the `backend/` folder.
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # or requirements.txt to run the API only
 ```
 
 ### 2. Start PostgreSQL
 
 ```bash
-docker compose up -d
+docker compose -f db.yml up -d
 docker ps                          # should show cloudpilot-db
 ```
 
@@ -143,17 +145,19 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ### 5. Create the tables
 
-```bash
-alembic revision --autogenerate -m "identity subscription project source tables"
-```
-
-Open the new file in `alembic/versions/` and check that `upgrade()` creates all nine tables (it must not be only `pass`). Then:
+The migrations are in `alembic/versions/`. Apply them:
 
 ```bash
 alembic upgrade head
 ```
 
-If the migration file already exists in the repository, skip the `revision` command and run only `alembic upgrade head`.
+When you change a model, generate a new migration and review it before committing:
+
+```bash
+alembic revision --autogenerate -m "describe the change"
+```
+
+Check that `upgrade()` and `downgrade()` contain the expected operations (not only `pass`). New revisions are automatically fixed and formatted by Ruff (hooks in `alembic.ini`, which need `requirements-dev.txt`). The test suite fails if a model change has no migration.
 
 ### 6. Seed the database
 
@@ -244,19 +248,29 @@ In server components, forward the `access_token` cookie manually when calling th
 
 ## Running the tests
 
-Tests use a separate PostgreSQL database so development data is never touched.
+Tests use a separate PostgreSQL database so development data is never touched. `tests/conftest.py` overrides every setting (your `.env` is ignored), connects to `TEST_DATABASE_URL` (default `postgresql+psycopg://cloudpilot:cloudpilot@localhost:5432/cloudpilot_test`), refuses any database whose name does not end in `_test`, migrates it with Alembic, and rolls back each test's changes.
 
 ```bash
 # one time
 docker exec -it cloudpilot-db psql -U cloudpilot -c "CREATE DATABASE cloudpilot_test;"
 
 # run
-pytest -v
+pytest --cov                      # all tests with coverage (CI requires >= 90%)
 pytest tests/test_security.py     # fast tests, no database needed
 pytest -k callback                # only tests with "callback" in the name
 ```
 
-The suite covers JWT creation and rejection (tampered, expired, wrong secret, `alg: none`), user creation on first login, the GitHub callback flow with a fake GitHub client, cookie behavior, logout, and CORS.
+The suite covers JWT creation and rejection (tampered, expired, wrong secret, `alg: none`, missing claims), the GitHub OAuth client against a mocked GitHub API, user creation and profile refresh on login, the GitHub callback flow with a fake GitHub client (state checks, failures), cookie behavior, `dev-login`, logout, CORS, the seed script's idempotency, and the migrations (single head, downgrade/upgrade round trip, and no model changes without a migration).
+
+## Lint and type checks
+
+```bash
+ruff check .            # lint rules are shared with the AI layer in ../ruff.toml
+ruff format --check .   # `ruff format .` to fix
+mypy                    # settings in pyproject.toml
+```
+
+CI runs these and the tests on every pull request (`Backend lint and types` and `Backend tests`; see the [root README](../README.md#continuous-integration)).
 
 ---
 
@@ -283,7 +297,7 @@ Currently implemented: `users`, `teams`, `team_members`, `plans`, `subscriptions
 | Symptom | Cause / fix |
 |---|---|
 | `ValidationError ... Field required` at startup | A variable is missing in `.env`, or uvicorn was started outside `backend/` |
-| `connection refused` | Docker is not running. Run `docker compose up -d` |
+| `connection refused` | Docker is not running. Run `docker compose -f db.yml up -d` |
 | Alembic generates an empty migration (`pass`) | `alembic/env.py` is missing `import app.models` or `target_metadata = Base.metadata`, or `models/__init__.py` does not import every model |
 | `ModuleNotFoundError: No module named 'jwt'` | Install `pyjwt` (not `jwt`) |
 | `400` or redirect to `/login?error=github_failed` after approving on GitHub | State cookie lost (mixed `localhost` and `127.0.0.1`), wrong client secret, or the callback URL in the GitHub app differs from `GITHUB_REDIRECT_URI` |
