@@ -72,9 +72,10 @@ jobs:
         run: |
           targets=(backend/requirements.txt)
           while read -r project; do
+            [[ -n "$project" ]] || continue
             if [[ -f "$project/pyproject.toml" ]]; then targets+=("$project"); else targets+=("$project/requirements.txt"); fi
           done < <(python .github/scripts/discover_ai_projects.py ai | python -c \
-            'import json, sys; print("\n".join(p["path"] for p in json.load(sys.stdin)["projects"]))')
+            'import json, sys; [print(p["path"]) for p in json.load(sys.stdin)["projects"]]')
           status=0
           for target in "${targets[@]}"; do
             echo "::group::pip-audit ${target}"
