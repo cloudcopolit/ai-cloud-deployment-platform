@@ -9,9 +9,7 @@ from app.models.type import TimestampMixin, UUIDPrimaryKeyMixin
 
 class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "projects"
-    __table_args__ = (
-        CheckConstraint("status IN ('ACTIVE','ARCHIVED')", name="status_valid"),
-    )
+    __table_args__ = (CheckConstraint("status IN ('ACTIVE','ARCHIVED')", name="status_valid"),)
 
     team_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("teams.id", ondelete="RESTRICT"), index=True

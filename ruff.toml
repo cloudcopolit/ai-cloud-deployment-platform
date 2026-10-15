@@ -1,0 +1,32 @@
+# Shared Ruff lint and format policy for every Python component in this
+# repository (backend/ and all projects under ai/). Ruff resolves the closest
+# configuration file, so a component only needs its own ruff.toml if it must
+# deviate; in that case start it with `extend = "<relative path>/ruff.toml"`.
+
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # import sorting
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "S",    # flake8-bandit (security)
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PT",   # flake8-pytest-style
+    "RUF",  # Ruff-specific rules
+]
+
+[lint.per-file-ignores]
+# Tests use plain asserts and deliberately hard-coded, fake credentials.
+"**/tests/**" = ["S101", "S105", "S106"]
+# CI helper scripts run `git` from PATH with fixed arguments by design.
+".github/scripts/**" = ["S603", "S607"]
+
+[lint.isort]
+# Both the backend and the AI services use `app` as their top-level package.
+known-first-party = ["app"]

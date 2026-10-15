@@ -10,5 +10,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     github_user_id: Mapped[str] = mapped_column(String(50), unique=True)
     name: Mapped[str | None] = mapped_column(String(255))
-    email: Mapped[str | None] = mapped_column(String(320), unique=True)  # GitHub emails can be hidden
+    email: Mapped[str | None] = mapped_column(
+        String(320), unique=True
+    )  # GitHub emails can be hidden
     avatar_url: Mapped[str | None] = mapped_column(String(500))

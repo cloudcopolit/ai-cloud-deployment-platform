@@ -12,9 +12,7 @@ class Repository(UUIDPrimaryKeyMixin, Base):
     """GitHub repository metadata only. Source code is never stored."""
 
     __tablename__ = "repositories"
-    __table_args__ = (
-        UniqueConstraint("project_id", "github_repository_id"),
-    )
+    __table_args__ = (UniqueConstraint("project_id", "github_repository_id"),)
 
     project_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("projects.id", ondelete="RESTRICT"), index=True

@@ -24,6 +24,4 @@ class Plan(UUIDPrimaryKeyMixin, Base):
     billing_interval: Mapped[str] = mapped_column(String(10), default="MONTHLY")
     limits: Mapped[dict] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
