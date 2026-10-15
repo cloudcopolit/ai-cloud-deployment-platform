@@ -1,0 +1,118 @@
+name: Infrastructure
+
+# Validation only. This workflow never runs `terraform plan/apply`, never
+# configures a remote backend, and never receives cloud credentials.
+
+on:
+  pull_request:
+    branches: [main, dev, testing]
+  push:
+    branches: [main, dev, testing]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+
+jobs:
+  validate:
+    name: Infrastructure checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Detect infrastructure definitions
+        id: detect
+        run: |
+          git ls-files '*.tf' | xargs -r -n1 dirname | sort -u > "$RUNNER_TEMP/terraform-dirs"
+          git ls-files ':(glob)**/Dockerfile' ':(glob)**/Dockerfile.*' ':(glob)**/*.Dockerfile' \
+            > "$RUNNER_TEMP/dockerfiles"
+          # Compose files by conventional name, plus any YAML file with a top-level `services:` key
+          # (for example backend/db.yml).
+          {
+            git ls-files ':(glob)**/docker-compose*.yml' ':(glob)**/docker-compose*.yaml' \
+              ':(glob)**/compose*.yml' ':(glob)**/compose*.yaml'
+            git ls-files '*.yml' '*.yaml' ':!:.github/**' ':!:**/pnpm-lock.yaml' \
+              | xargs -r grep -l '^services:' || true
+          } | sort -u > "$RUNNER_TEMP/compose-files"
+          for kind in terraform-dirs dockerfiles compose-files; do
+            count=$(grep -c . "$RUNNER_TEMP/$kind" || true)
+            echo "${kind}=${count}" >> "$GITHUB_OUTPUT"
+            echo "Found ${count} ${kind}:"; sed 's/^/  /' "$RUNNER_TEMP/$kind"
+          done
+
+      - name: Report missing Terraform configuration
+        if: steps.detect.outputs.terraform-dirs == '0'
+        run: echo "::notice::No Terraform (*.tf) files exist yet; Terraform checks were skipped."
+
+      - name: Set up Terraform
+        if: steps.detect.outputs.terraform-dirs != '0'
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        if: steps.detect.outputs.terraform-dirs != '0'
+        run: terraform fmt -check -recursive -diff
+
+      - name: Validate Terraform (no backend, no credentials)
+        if: steps.detect.outputs.terraform-dirs != '0'
+        run: |
+          while read -r dir; do
+            echo "::group::terraform validate ${dir}"
+            terraform -chdir="$dir" init -backend=false -input=false -no-color
+            terraform -chdir="$dir" validate -no-color
+            echo "::endgroup::"
+          done < "$RUNNER_TEMP/terraform-dirs"
+
+      - name: Set up TFLint
+        if: steps.detect.outputs.terraform-dirs != '0'
+        uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: v0.64.0
+
+      - name: Lint Terraform (TFLint)
+        if: steps.detect.outputs.terraform-dirs != '0'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init
+          tflint --recursive --format compact
+
+      - name: Lint Dockerfiles (Hadolint)
+        if: steps.detect.outputs.dockerfiles != '0'
+        run: |
+          mapfile -t dockerfiles < "$RUNNER_TEMP/dockerfiles"
+          docker run --rm -v "$PWD:/repo:ro" -w /repo \
+            hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d \
+            hadolint "${dockerfiles[@]}"
+
+      - name: Validate Docker Compose files
+        if: steps.detect.outputs.compose-files != '0'
+        run: |
+          while read -r file; do
+            if ! grep -qEv '^[[:space:]]*(#|$)' "$file"; then
+              echo "::notice file=${file}::Compose file is empty; there is nothing to validate."
+              continue
+            fi
+            echo "Validating ${file}"
+            docker compose -f "$file" config --quiet --no-env-resolution
+          done < "$RUNNER_TEMP/compose-files"
+
+      - name: Scan for security misconfigurations (Trivy)
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" -w /repo
+          aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+          config --exit-code 1 --severity HIGH,CRITICAL --skip-dirs '**/node_modules' --skip-version-check .

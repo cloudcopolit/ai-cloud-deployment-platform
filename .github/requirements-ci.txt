@@ -1,0 +1,6 @@
+# Python tools used by the repository-level CI jobs (.github/workflows).
+# Component dependencies live in backend/ and ai/.
+pip-audit==2.10.1
+pyyaml==6.0.3
+ruff==0.16.10
+zizmor==1.30.1

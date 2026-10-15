@@ -7,19 +7,14 @@
 </p>
 
 <p align="center">
-  <img alt="React" src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Python" src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white">
   <img alt="Pydantic" src="https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white">
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white">
-  <img alt="AWS" src="https://img.shields.io/badge/AWS-232F3E?style=flat-square&logo=amazonaws&logoColor=white">
-  <img alt="Amazon Bedrock" src="https://img.shields.io/badge/Bedrock-FF9900?style=flat-square&logo=amazonaws&logoColor=white">
-  <img alt="Model Context Protocol" src="https://img.shields.io/badge/MCP-1F2937?style=flat-square&logo=modelcontextprotocol&logoColor=white">
-  <img alt="Terraform" src="https://img.shields.io/badge/Terraform-844FBA?style=flat-square&logo=terraform&logoColor=white">
-  <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white">
-  <img alt="Kubernetes" src="https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white">
-  <img alt="Prometheus" src="https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white">
-  <img alt="Grafana" src="https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white">
-  <img alt="CloudWatch" src="https://img.shields.io/badge/CloudWatch-FF4F8B?style=flat-square&logo=amazonaws&logoColor=white">
+  <img alt="Terraform (planned)" src="https://img.shields.io/badge/Terraform-planned-844FBA?style=flat-square&logo=terraform&logoColor=white">
+  <img alt="AWS (planned)" src="https://img.shields.io/badge/AWS-planned-232F3E?style=flat-square&logo=amazonaws&logoColor=white">
 </p>
 
 <p align="center">
@@ -28,34 +23,39 @@
 </p>
 
 <p align="center">
-  <img alt="Private project" src="https://img.shields.io/badge/visibility-private-8A96AD?style=for-the-badge">
-  <img alt="Project status: scaffold" src="https://img.shields.io/badge/status-project%20scaffold-2F6BFF?style=for-the-badge">
+  <a href="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/backend.yml"><img alt="Backend" src="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/backend.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/frontend.yml"><img alt="Frontend" src="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/frontend.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/ai.yml"><img alt="AI" src="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/ai.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/infrastructure.yml"><img alt="Infrastructure" src="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/infrastructure.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/security.yml"><img alt="Security" src="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/security.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/repository.yml"><img alt="Repository" src="https://github.com/cloudcopolit/ai-cloud-deployment-platform/actions/workflows/repository.yml/badge.svg?branch=main"></a>
 </p>
 
 <p align="center">
   <a href="#project-status">Status</a> &middot;
-  <a href="#vision">Vision</a> &middot;
-  <a href="#planned-architecture">Architecture</a> &middot;
-  <a href="#repository-map">Repository map</a> &middot;
-  <a href="#project-access">Project access</a>
+  <a href="#architecture">Architecture</a> &middot;
+  <a href="#repository-structure">Structure</a> &middot;
+  <a href="#local-development">Local development</a> &middot;
+  <a href="#quality-checks">Quality checks</a> &middot;
+  <a href="#continuous-integration">CI</a> &middot;
+  <a href="#known-limitations">Limitations</a>
 </p>
 
 ---
 
-> **Private project:** This repository is intended for authorized project collaborators; it is not a public open-source project. **Current status:** This repository is an early scaffold, not a working deployment platform. Application, agent, and Terraform directories are placeholders; there is no runnable local application setup yet. The architecture below describes the project direction, not deployed functionality.
+> **Private project:** This repository is for authorized project collaborators; it is not a public open-source project.
+> **Current status:** early development. GitHub sign-in, a protected dashboard shell, and the first database tables work locally. The AI agents, infrastructure generation, and cloud deployment are **planned, not implemented**. This README marks each part as one or the other.
 
 ## Project status
 
 | Area | Current state |
 |---|---|
-| Application code | Backend and frontend directories are placeholders |
-| AI workflows | Agent, prompt, tool, and workflow directories are placeholders |
-| Infrastructure | Terraform module and environment directories are placeholders |
-| Local development | `docker-compose.yml` is currently empty |
-| CI and automated tests | Pull request and `main` CI is configured; app checks skip empty scaffold directories |
-| Project documentation | Architecture, API, and decision directories are ready for documentation |
-
-The goal of this README is to explain the intended design while making clear what is and is not implemented today.
+| Backend API (`backend/`) | **Implemented:** FastAPI app, PostgreSQL schema for users, teams, plans, subscriptions, projects, repositories, branches and commits (Alembic migrations), idempotent seed script, GitHub OAuth sign-in, JWT in an HttpOnly cookie, CORS, development-only login. **Placeholder:** `analysis`, `deployments`, `projects`, `repositories` modules are empty. |
+| Frontend (`frontend/`) | **Implemented:** Next.js 16 app with login page, route protection (`src/proxy.ts`), server-side session lookup, and a protected dashboard layout with logout. **Planned:** projects, repository connection, architecture editor, deployment history. |
+| AI layer (`ai/`) | **Placeholder.** Agent, prompt, tool, and workflow directories are empty on `main`. A Code Architect prototype is in progress on a feature branch. See [ai/README.md](ai/README.md). |
+| Infrastructure (`infrastructure/`) | **Placeholder.** Terraform module and environment directories contain no configuration. The root `docker-compose.yml` is empty; the backend's local database is defined in [`backend/db.yml`](backend/db.yml). |
+| Tests | Backend: pytest suite (auth, OAuth client, CORS, seed, migrations) against PostgreSQL with a 90% coverage gate. Frontend: Vitest unit tests for route protection and API schemas. |
+| CI | GitHub Actions quality gates for every component, security scans, and workflow linting. See [Continuous integration](#continuous-integration). |
 
 ## Vision
 
@@ -70,9 +70,26 @@ CloudPilot aims to help a developer take an existing application from source cod
 
 **Safety principle:** AI can propose actions; validation rules, human approval, and cloud permissions must control what actually runs.
 
-## Planned architecture
+## Architecture
 
-The diagram shows the intended flow. It is a design sketch and does not imply that these components or integrations are implemented.
+### What runs today
+
+```mermaid
+flowchart LR
+    U[Browser] -->|pages| F["Frontend<br/>Next.js 16"]
+    U -->|"sign-in redirect"| B["Backend API<br/>FastAPI"]
+    F -->|"/auth/me with cookie"| B
+    B -->|"OAuth code exchange, profile"| G[GitHub]
+    B -->|SQLAlchemy| D[("PostgreSQL 16")]
+```
+
+- The **frontend** protects `/dashboard`, `/projects`, `/settings`, and `/team` in `src/proxy.ts` and loads the signed-in user server-side from `GET /auth/me`.
+- The **backend** runs the GitHub OAuth flow, creates or updates the user, and issues a short-lived JWT in an HttpOnly cookie. Team roles will be checked from the database on each request, not stored in the token.
+- Details: [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md).
+
+### Planned flow
+
+The diagram shows the intended product flow. It is a design sketch; none of the AI, generation, or deployment steps exist yet.
 
 ```mermaid
 flowchart LR
@@ -87,89 +104,150 @@ flowchart LR
     I -.approved recovery only.-> J[Repair or human escalation]
 ```
 
-### Planned components
+### Components and responsibilities
 
-| Component | Intended responsibility | Current status |
+| Component | Responsibility | Status |
 |---|---|---|
-| Code analyzers | Identify how an application is built and run | Placeholder |
-| Orchestrator | Coordinate analysis, planning, validation, approval, and deployment | Placeholder |
-| Architecture agent | Produce a cloud resource plan | Placeholder |
-| Terraform agent | Generate infrastructure-as-code | Placeholder |
-| Validator | Check generated plans and application behavior | Placeholder |
-| Backend | Provide the platform API | Placeholder |
-| Frontend | Chat-based workflow and architecture editor | Placeholder |
+| Frontend | Sign-in, protected dashboard; later the chat-based workflow and architecture editor | Partially implemented |
+| Backend API | Identity, teams, subscriptions, projects, source-control records; later analysis, architecture versions, deployments | Partially implemented |
+| Orchestrator (`ai/agents/orchestrator`) | Coordinate analysis, planning, validation, approval, and deployment across agents | Planned |
+| Code analyzer agent | Identify how an application is built and run | Planned |
+| Architecture agent | Produce a cloud resource plan | Planned |
+| Terraform agent | Generate infrastructure-as-code | Planned |
+| Validator agent | Check generated plans and application behavior | Planned |
+| Prompts, tools, workflows (`ai/`) | Prompt templates, tools agents may call, and workflow definitions used by the orchestrator | Planned |
+| Infrastructure (`infrastructure/terraform`) | Reusable modules (VPC, compute, load balancer, security group) and per-environment configuration | Planned |
 | Monitoring and recovery | Diagnose issues and propose controlled repairs | Later-phase concept |
 
-## Planned technology direction
+**How the AI parts are meant to fit together:** the backend will hand an analysis or planning request to the orchestrator; the orchestrator calls specialized agents, which use prompts from `ai/prompts/` and act only through tools in `ai/tools/`; multi-step sequences are described in `ai/workflows/`. Agent output is treated as untrusted and must pass validation and human approval before anything is deployed. CI already discovers and checks any AI project added under `ai/`; see [ai/README.md](ai/README.md) for the conventions.
 
-These are technologies described by the project plan, not a guarantee that the current repository integrates them:
+### Planned technology direction
+
+These technologies are part of the project plan, not current integrations:
 
 | Area | Planned direction |
 |---|---|
-| Frontend | React |
-| Backend and agent code | Python, Pydantic |
 | AI integrations | Amazon Bedrock, Model Context Protocol (MCP), retrieval-augmented generation |
 | Workflow orchestration | An AWS workflow engine is under consideration |
 | Cloud infrastructure | AWS and Terraform; deployment tooling remains to be defined |
+| Containers and orchestration | Docker, Kubernetes |
 | Observability | Prometheus, Grafana, and CloudWatch are candidates |
 
-## Repository map
+## Repository structure
 
 ```text
 .
-├── .github/                 # CI, Dependabot, issue/PR templates, CodeRabbit config
-├── ai/
-│   ├── agents/              # Planned analyzer, architect, orchestrator, IaC, validator
-│   ├── prompts/             # Planned prompt templates
-│   ├── tests/               # Planned agent and prompt tests
-│   ├── tools/               # Planned tools exposed to agents
-│   └── workflows/           # Planned workflow definitions
+├── .github/
+│   ├── workflows/           # CI: backend, frontend, ai, infrastructure, security, repository
+│   ├── scripts/             # CI helper scripts (AI discovery, link and config validation)
+│   ├── requirements-ci.txt  # Pinned Python tools for repository-level CI jobs
+│   ├── dependabot.yml
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── ISSUE_TEMPLATE/
+├── ai/                      # AI layer (placeholders; see ai/README.md)
+│   ├── agents/              # orchestrator, code_analyzer, architecture, terraform, validator
+│   ├── prompts/ tools/ workflows/ tests/
+│   ├── requirements-dev.txt # Shared Ruff/mypy pins for AI projects
+│   └── mypy.ini
 ├── assets/                  # Project logos and brand assets
-├── backend/                 # Planned platform API
-├── docs/
-│   ├── api/                 # API documentation
-│   ├── architecture/        # Architecture notes
-│   └── decisions/           # Architecture decision records
-├── frontend/                # Planned user interface
+├── backend/                 # FastAPI API, SQLAlchemy models, Alembic migrations, pytest suite
+├── docs/                    # api/, architecture/, decisions/ (empty, ready for documentation)
+├── frontend/                # Next.js 16 + TypeScript app, Vitest tests
 ├── infrastructure/
-│   └── terraform/
-│       ├── environments/    # dev, staging, prod placeholders
-│       └── modules/         # compute, load balancer, security group, VPC
-├── CONTRIBUTING.md
-├── CODE_OF_CONDUCT.md
-├── SECURITY.md
-└── docker-compose.yml       # Empty placeholder; not runnable yet
+│   └── terraform/           # modules/ and environments/ (dev, staging, prod) placeholders
+├── ruff.toml                # Shared Python lint and format policy
+├── docker-compose.yml       # Empty placeholder; not runnable yet
+├── CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md  LICENSE
+└── README.md
 ```
 
-## Getting started
+## Prerequisites
 
-There is no runnable application setup yet. Authorized team members can help define the first working vertical slice. Before making changes, read the [contribution guide](CONTRIBUTING.md) and check the project's internal planning/issues for current priorities.
+| Tool | Version | Used for |
+|---|---|---|
+| Python | 3.12 ([`backend/.python-version`](backend/.python-version)) | Backend, AI projects |
+| Node.js | 24 LTS in CI ([`frontend/.nvmrc`](frontend/.nvmrc)); Next.js 16 needs ≥ 20.9 | Frontend |
+| pnpm | 12.4.1 (pinned by `packageManager` in `frontend/package.json`) | Frontend |
+| Docker with Compose | Any recent version | Local PostgreSQL (`backend/db.yml`) |
+| A GitHub OAuth App | — | Sign-in (see the backend README) |
 
-Once a runnable component and its dependencies are added, its maintainers should document setup, configuration, and verification commands here.
+## Local development
+
+Full instructions live in the component READMEs; the short version:
+
+```bash
+# Backend (from backend/)
+python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt                    # runtime + dev tools
+cp .env.example .env                                   # then fill in the placeholders
+docker compose -f db.yml up -d                         # PostgreSQL 16 on localhost:5432
+alembic upgrade head && python -m app.db.seed
+uvicorn app.main:app --reload                          # http://localhost:8000/docs
+
+# Frontend (from frontend/, in another terminal)
+npm install -g pnpm                                    # then switches to the pinned version itself
+pnpm install
+cp .env.example .env.local
+pnpm dev                                               # http://localhost:3000
+```
+
+### Environment variables
+
+| File | Copy to | Contents |
+|---|---|---|
+| [`backend/.env.example`](backend/.env.example) | `backend/.env` | `DATABASE_URL`, `ENVIRONMENT`, `JWT_SECRET_KEY`, GitHub OAuth client ID/secret/redirect URI, `FRONTEND_URL` |
+| [`frontend/.env.example`](frontend/.env.example) | `frontend/.env.local` | `NEXT_PUBLIC_API_URL` |
+
+Real `.env` files are ignored by Git. Never commit them, paste them into issues, or put secrets in `NEXT_PUBLIC_*` variables (those are shipped to the browser).
+
+## Quality checks
+
+Run the checks for the components you change before opening a pull request. They are the same commands CI runs.
+
+| Component | Commands (run from the component directory) |
+|---|---|
+| Backend | `ruff check .` · `ruff format --check .` · `mypy` · `pytest --cov` (needs the `cloudpilot_test` database, see the [backend README](backend/README.md#running-the-tests)) |
+| Frontend | `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build` |
+| AI projects | See [ai/README.md](ai/README.md#running-the-checks-locally) |
+| Repository (from the root) | `python .github/scripts/validate_structured_files.py` · `python .github/scripts/check_markdown_links.py` · `python .github/scripts/discover_ai_projects.py` |
+
+The full list, including the security and workflow-lint commands, is in [CONTRIBUTING.md](CONTRIBUTING.md#reproduce-ci-locally).
 
 ## Continuous integration
 
-The GitHub Actions CI workflow runs for pull requests targeting `dev`, `testing`, or `main`, pushes to those branches, and manual dispatches. It checks patch whitespace and, when the matching project files exist:
+Every workflow runs on pull requests targeting `dev`, `testing`, or `main`, on pushes to those branches, and on manual dispatch. Workflows have no path filters, so every pull request always reports every check. Each job has read-only repository permissions, receives no secrets, and never deploys.
 
-| Area | Checks |
-|---|---|
-| Python backend (`backend/`) | Ruff lint, pytest, and pip-audit dependency scan |
-| Python AI layer (`ai/`) | Ruff lint, pytest, and pip-audit dependency scan |
-| React frontend (`frontend/`) | `npm ci`, npm audit, lint, typecheck, CI tests, and production build |
-| Terraform | Formatting and configuration validation without using a cloud account |
+| Workflow | Job (status check name) | What it checks |
+|---|---|---|
+| [Backend](.github/workflows/backend.yml) | `Backend lint and types` | Ruff lint, Ruff format, mypy (with the Pydantic plugin) |
+| | `Backend tests` | pytest against a disposable PostgreSQL 16 service, ≥ 90% branch coverage, and Alembic checks (single head, downgrade/upgrade round trip, no model changes without a migration) |
+| [Frontend](.github/workflows/frontend.yml) | `Frontend checks` | `pnpm install --frozen-lockfile`, ESLint, TypeScript (after `next typegen`), Vitest, production build |
+| [AI](.github/workflows/ai.yml) | `AI checks` | Discovers every project under `ai/`, then per project: Ruff, mypy, offline pytest. Fails on Python code outside a project or projects without tests |
+| [Infrastructure](.github/workflows/infrastructure.yml) | `Infrastructure checks` | When present: `terraform fmt`, `init -backend=false` + `validate`, TFLint, Hadolint, `docker compose config`. Always: Trivy misconfiguration scan. Empty Compose files and missing Terraform are reported as notices |
+| [Security](.github/workflows/security.yml) | `Secret scan` | Gitleaks over the commits a PR introduces (full branch history on push and weekly) |
+| | `Dependency audit` | `pip-audit` for the backend and every AI project, `pnpm audit --audit-level high` for the frontend; also weekly |
+| [Repository](.github/workflows/repository.yml) | `Repository hygiene` | Whitespace errors, Ruff on CI scripts, JSON/YAML/TOML syntax, Markdown links and anchors, actionlint, zizmor workflow-security audit |
 
-The current scaffold has no runnable app source, so component checks report a skip until code is added. Once source exists, CI requires project metadata and tests (and, for React, a committed lockfile and the `lint`, `typecheck`, `test:ci`, and `build` npm scripts). It does not deploy or require AWS credentials.
+Third-party actions are pinned to full commit SHAs and tool containers to image digests; Dependabot proposes updates weekly against `dev`.
 
-The recommended promotion flow is feature branches → `dev` (integration) → `testing` (pre-production) → `main` (production). CI is validation only and does not deploy. Repository administrators should configure branch protection and require CI checks and reviews for all three long-lived branches; workflows cannot enable those repository settings themselves.
-The `dev` and `testing` branches must exist in GitHub before their branch-specific workflows and protection rules can run.
-Dependabot is configured to propose weekly updates for GitHub Actions used by CI.
-CodeRabbit review settings and language-specific review guidance are in [`.coderabbit.yaml`](.coderabbit.yaml). CodeRabbit must also be installed and authorized for this private repository.
+**Branch flow:** feature branches → `dev` (integration) → `testing` (pre-production) → `main` (production). CI validates; it does not deploy.
 
-## Project access
+## Contributing
 
-This is a private project, not a public open-source project. Repository access and participation are managed by the project maintainers; public contributions are not accepted.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. In short: branch from `dev`, keep changes focused, run the relevant checks, fill in the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) (testing evidence, security and migration impact), and get every CI check green. CodeRabbit reviews pull requests using [`.coderabbit.yaml`](.coderabbit.yaml).
 
-For authorized collaborators, follow [CONTRIBUTING.md](CONTRIBUTING.md), the [Code of Conduct](CODE_OF_CONDUCT.md), and [SECURITY.md](SECURITY.md). Report security concerns privately rather than in a public issue.
+## Security
+
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md), never in a public issue. Never commit credentials, `.env` files, Terraform state, or real account identifiers; the Secret scan check blocks commits that look like credentials, but rotating an exposed secret is always required, because removing it from a later commit does not remove it from Git history.
+
+## Known limitations
+
+- No AI agents, orchestrator, prompts, tools, or workflows exist on `main` yet.
+- No Terraform configuration or cloud deployment exists; infrastructure checks currently only run the Trivy scan.
+- The root `docker-compose.yml` is empty. Only the backend database has a Compose definition ([`backend/db.yml`](backend/db.yml)).
+- Backend `projects`, `repositories`, `analysis`, and `deployments` modules are empty placeholders; there is no refresh token yet.
+- The frontend has no formatter configured (ESLint only) and no component or end-to-end tests yet.
+- The repository is private on GitHub's Free plan, so branch protection, CodeQL code scanning, and dependency review are not available; see CONTRIBUTING.md for what that means for required checks.
 
 ## Roadmap
 
