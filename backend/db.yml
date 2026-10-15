@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:16
+    container_name: cloudpilot-db
+    environment:
+      POSTGRES_USER: cloudpilot
+      POSTGRES_PASSWORD: cloudpilot
+      POSTGRES_DB: cloudpilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data

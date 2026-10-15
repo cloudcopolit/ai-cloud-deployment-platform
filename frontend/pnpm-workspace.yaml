@@ -1,0 +1,14 @@
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+
+# Reviewed exceptions for `pnpm audit`. Every entry needs a reason and an exit
+# condition; re-check them whenever dependencies change.
+auditConfig:
+  ignoreGhsas:
+    # braces <=3.0.3 stack-exhaustion DoS (high). No patched release exists.
+    # Reached only through build/dev tooling (shadcn CLI, eslint-config-next via
+    # fast-glob/micromatch) that expands developer-written glob patterns; it is
+    # not part of the application's runtime request path.
+    # Remove once a patched braces release is available and resolved.
+    - GHSA-vfj7-8cjw-p6xm
