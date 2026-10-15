@@ -1,0 +1,12 @@
+# Keep secrets and local artifacts out of the build context.
+.env*
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+Dockerfile
+.dockerignore
