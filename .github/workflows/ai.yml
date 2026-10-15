@@ -1,0 +1,131 @@
+name: AI
+
+on:
+  pull_request:
+    branches: [main, dev, testing]
+  push:
+    branches: [main, dev, testing]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  discover:
+    name: AI project discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      count: ${{ steps.discover.outputs.count }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Every directory under ai/ with a pyproject.toml or requirements.txt is a
+      # project. Fails if Python code sits outside a project or a project has no tests.
+      - name: Discover AI projects
+        id: discover
+        run: python3 .github/scripts/discover_ai_projects.py ai
+
+  project:
+    name: AI project (${{ matrix.name }})
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+    env:
+      INSTALL_MODE: ${{ matrix.install }}
+      OWN_MYPY_CONFIG: ${{ matrix.own_mypy_config }}
+      NESTED_PROJECTS: ${{ join(matrix.nested, ' ') }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            ${{ matrix.path }}/requirements*.txt
+            ${{ matrix.path }}/pyproject.toml
+            ai/requirements-dev.txt
+
+      - name: Install project and shared tools
+        run: |
+          if [[ "$INSTALL_MODE" == "pyproject" ]]; then
+            python -m pip install -e ".[dev]"
+          else
+            python -m pip install -r requirements.txt
+            if [[ -f requirements-dev.txt ]]; then python -m pip install -r requirements-dev.txt; fi
+          fi
+          python -m pip install -r "$GITHUB_WORKSPACE/ai/requirements-dev.txt"
+
+      - name: Lint (Ruff)
+        run: |
+          excludes=()
+          for nested in $NESTED_PROJECTS; do excludes+=(--extend-exclude "$nested"); done
+          ruff check --output-format=github "${excludes[@]}" .
+
+      - name: Check formatting (Ruff)
+        run: |
+          excludes=()
+          for nested in $NESTED_PROJECTS; do excludes+=(--extend-exclude "$nested"); done
+          ruff format --check "${excludes[@]}" .
+
+      - name: Type check (mypy)
+        run: |
+          args=()
+          if [[ "$OWN_MYPY_CONFIG" != "true" ]]; then args+=(--config-file "$GITHUB_WORKSPACE/ai/mypy.ini"); fi
+          for nested in $NESTED_PROJECTS; do args+=(--exclude "^${nested}/"); done
+          mypy "${args[@]}" .
+
+      # Tests must be deterministic: no paid LLM calls or real credentials.
+      # Tests that need a live model are marked `live_llm` and never run here.
+      - name: Tests (pytest)
+        run: |
+          args=()
+          for nested in $NESTED_PROJECTS; do args+=(--ignore="$nested"); done
+          python -m pytest -m "not live_llm" "${args[@]}"
+
+  result:
+    name: AI checks
+    needs: [discover, project]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize AI results
+        env:
+          DISCOVER_RESULT: ${{ needs.discover.result }}
+          PROJECT_RESULT: ${{ needs.project.result }}
+          PROJECT_COUNT: ${{ needs.discover.outputs.count }}
+        run: |
+          if [[ "$DISCOVER_RESULT" != "success" ]]; then
+            echo "::error::AI project discovery failed ($DISCOVER_RESULT). See the 'AI project discovery' job."
+            exit 1
+          fi
+          if [[ "$PROJECT_COUNT" == "0" ]]; then
+            echo "::notice::No AI Python projects exist under ai/ yet; only the layout checks ran."
+            exit 0
+          fi
+          if [[ "$PROJECT_RESULT" != "success" ]]; then
+            echo "::error::One or more AI projects failed ($PROJECT_RESULT)."
+            exit 1
+          fi
+          echo "All $PROJECT_COUNT AI project(s) passed."
