@@ -50,7 +50,7 @@ These job names are stable and are the ones to require in branch protection:
 | `Backend tests` | Backend | pytest with PostgreSQL, coverage ≥ 90%, Alembic migration checks |
 | `Frontend checks` | Frontend | Frozen-lockfile install, ESLint, TypeScript, Vitest, production build |
 | `AI checks` | AI | Aggregate result of discovery plus Ruff, mypy, and offline pytest for every AI project |
-| `Infrastructure checks` | Infrastructure | Terraform fmt/validate/TFLint, Hadolint, Compose validation (when present), Trivy misconfiguration scan |
+| `Infrastructure checks` | Infrastructure | Terraform fmt/validate/TFLint (when present), Hadolint, Compose validation (overlays merged with their base), Trivy misconfiguration scan |
 | `Secret scan` | Security | Gitleaks on the commits being merged |
 | `Dependency audit` | Security | pip-audit (backend and AI projects), pnpm audit |
 | `Repository hygiene` | Repository | Whitespace, Ruff on CI scripts, JSON/YAML/TOML syntax, Markdown links, actionlint, zizmor |
@@ -78,6 +78,10 @@ pytest --cov
 Tests always use `TEST_DATABASE_URL` (default `postgresql+psycopg://cloudpilot:cloudpilot@localhost:5432/cloudpilot_test`) and refuse to run against a database whose name does not end in `_test`, so your `.env` cannot point them at real data.
 
 New Alembic revisions are automatically fixed and formatted by Ruff (configured in `alembic.ini`); this needs the development requirements installed.
+
+The same suite also runs in Docker with an isolated, throwaway database:
+`docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file .env.example run --rm --build backend-tests`
+(see [docs/environments.md](docs/environments.md#testing)).
 
 ### Frontend (`frontend/`)
 
@@ -109,6 +113,7 @@ pip-audit -r backend/requirements.txt
 (cd frontend && pnpm audit --audit-level high)
 docker run --rm -v "$PWD:/repo" -w /repo aquasec/trivy:0.75.0 config --severity HIGH,CRITICAL .
 docker compose -f backend/db.yml config --quiet
+for env in dev test prod; do docker compose -f docker-compose.yml -f docker-compose.$env.yml --env-file .env.example config --quiet; done
 ```
 
 The workflows pin these images by digest; the tags above are the same versions.

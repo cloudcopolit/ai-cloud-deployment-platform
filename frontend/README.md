@@ -34,7 +34,10 @@ cp .env.example .env.local
 
 | Variable              | Example                 | Purpose                                 |
 | --------------------- | ----------------------- | --------------------------------------- |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Used in the browser (login link, Axios) |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Used in the browser (login link, Axios); inlined at build time |
+| `API_INTERNAL_URL` (optional) | `http://backend:8000` | Used by server-side code (session lookup) when the API has a different internal address, e.g. in Docker; defaults to `NEXT_PUBLIC_API_URL` |
+
+To run the whole stack in Docker instead, see [docs/environments.md](../docs/environments.md).
 
 > Use `localhost` everywhere, never `127.0.0.1`. Cookies are host-bound.
 
