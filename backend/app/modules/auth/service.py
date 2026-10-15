@@ -17,9 +17,11 @@ def upsert_github_user(db: Session, profile: GitHubProfile) -> User:
 
     # email is UNIQUE, so only set it if no other user already has it
     if profile.email:
-        taken = db.scalar(
-            select(User.id).where(User.email == profile.email, User.id != user.id)
-        ) if user.id else db.scalar(select(User.id).where(User.email == profile.email))
+        taken = (
+            db.scalar(select(User.id).where(User.email == profile.email, User.id != user.id))
+            if user.id
+            else db.scalar(select(User.id).where(User.email == profile.email))
+        )
         if taken is None:
             user.email = profile.email
 

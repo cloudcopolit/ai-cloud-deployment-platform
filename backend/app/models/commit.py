@@ -12,9 +12,7 @@ class Commit(UUIDPrimaryKeyMixin, Base):
     """Only commits from the deployment branch are recorded."""
 
     __tablename__ = "commits"
-    __table_args__ = (
-        UniqueConstraint("repository_id", "sha"),
-    )
+    __table_args__ = (UniqueConstraint("repository_id", "sha"),)
 
     repository_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("repositories.id", ondelete="RESTRICT"), index=True

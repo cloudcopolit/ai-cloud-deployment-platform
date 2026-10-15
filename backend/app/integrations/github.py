@@ -6,7 +6,7 @@ import httpx
 from app.core.config import settings
 
 AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-TOKEN_URL = "https://github.com/login/oauth/access_token"
+TOKEN_URL = "https://github.com/login/oauth/access_token"  # noqa: S105 - endpoint URL, not a secret
 API_URL = "https://api.github.com"
 
 
@@ -23,12 +23,14 @@ class GitHubProfile:
 
 
 def build_authorize_url(state: str) -> str:
-    query = urlencode({
-        "client_id": settings.github_client_id,
-        "redirect_uri": settings.github_redirect_uri,
-        "scope": "read:user user:email",  # identity only, no repository access
-        "state": state,
-    })
+    query = urlencode(
+        {
+            "client_id": settings.github_client_id,
+            "redirect_uri": settings.github_redirect_uri,
+            "scope": "read:user user:email",  # identity only, no repository access
+            "state": state,
+        }
+    )
     return f"{AUTHORIZE_URL}?{query}"
 
 

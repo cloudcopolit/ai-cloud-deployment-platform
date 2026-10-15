@@ -1,13 +1,15 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
 from app.core.config import settings
+
 ACCESS_COOKIE = "access_token"
 
+
 def create_access_token(user_id: uuid.UUID) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),  # who the token is about
         "iat": now,

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -6,7 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models import (
-    Branch, Commit, Plan, Project, Repository, Subscription, Team, TeamMember, User,
+    Branch,
+    Commit,
+    Plan,
+    Project,
+    Repository,
+    Subscription,
+    Team,
+    TeamMember,
+    User,
 )
 
 
@@ -22,7 +30,9 @@ def get_or_create(db: Session, model, lookup: dict, defaults: dict | None = None
 
 def seed_reference_data(db: Session) -> dict[str, Plan]:
     free = get_or_create(
-        db, Plan, {"code": "FREE"},
+        db,
+        Plan,
+        {"code": "FREE"},
         {
             "name": "Free",
             "monthly_price": Decimal("0.00"),
@@ -30,25 +40,34 @@ def seed_reference_data(db: Session) -> dict[str, Plan]:
         },
     )
     standard = get_or_create(
-        db, Plan, {"code": "STANDARD"},
+        db,
+        Plan,
+        {"code": "STANDARD"},
         {
             "name": "Standard",
             "monthly_price": Decimal("29.00"),
-            "limits": {"max_projects": 10, "max_team_members": 10, "max_deployments_per_month": 200},
+            "limits": {
+                "max_projects": 10,
+                "max_team_members": 10,
+                "max_deployments_per_month": 200,
+            },
         },
     )
     return {"FREE": free, "STANDARD": standard}
 
 
 def seed_dev_data(db: Session, plans: dict[str, Plan]) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
-    alice = get_or_create(db, User, {"github_user_id": "1001"},
-                          {"name": "Alice Owner", "email": "alice@example.com"})
-    bob = get_or_create(db, User, {"github_user_id": "1002"},
-                        {"name": "Bob Developer", "email": "bob@example.com"})
-    carol = get_or_create(db, User, {"github_user_id": "1003"},
-                          {"name": "Carol Developer", "email": None})  # hidden email
+    alice = get_or_create(
+        db, User, {"github_user_id": "1001"}, {"name": "Alice Owner", "email": "alice@example.com"}
+    )
+    bob = get_or_create(
+        db, User, {"github_user_id": "1002"}, {"name": "Bob Developer", "email": "bob@example.com"}
+    )
+    carol = get_or_create(
+        db, User, {"github_user_id": "1003"}, {"name": "Carol Developer", "email": None}
+    )  # hidden email
 
     team = get_or_create(db, Team, {"name": "Acme Startup"})
 
@@ -57,7 +76,9 @@ def seed_dev_data(db: Session, plans: dict[str, Plan]) -> None:
     get_or_create(db, TeamMember, {"team_id": team.id, "user_id": carol.id}, {"role": "MEMBER"})
 
     get_or_create(
-        db, Subscription, {"team_id": team.id, "plan_id": plans["FREE"].id},
+        db,
+        Subscription,
+        {"team_id": team.id, "plan_id": plans["FREE"].id},
         {
             "status": "ACTIVE",
             "price_at_subscription": plans["FREE"].monthly_price,
@@ -67,17 +88,31 @@ def seed_dev_data(db: Session, plans: dict[str, Plan]) -> None:
         },
     )
 
-    project = get_or_create(db, Project, {"team_id": team.id, "name": "Demo Shop"},
-                            {"description": "Sample e-commerce app"})
-
-    repo = get_or_create(
-        db, Repository, {"project_id": project.id, "github_repository_id": "900001"},
-        {"owner": "acme", "name": "demo-shop",
-         "url": "https://github.com/acme/demo-shop", "default_branch": "main"},
+    project = get_or_create(
+        db,
+        Project,
+        {"team_id": team.id, "name": "Demo Shop"},
+        {"description": "Sample e-commerce app"},
     )
 
-    main = get_or_create(db, Branch, {"repository_id": repo.id, "name": "main"},
-                         {"is_default": True, "is_deployment_branch": True})
+    repo = get_or_create(
+        db,
+        Repository,
+        {"project_id": project.id, "github_repository_id": "900001"},
+        {
+            "owner": "acme",
+            "name": "demo-shop",
+            "url": "https://github.com/acme/demo-shop",
+            "default_branch": "main",
+        },
+    )
+
+    main = get_or_create(
+        db,
+        Branch,
+        {"repository_id": repo.id, "name": "main"},
+        {"is_default": True, "is_deployment_branch": True},
+    )
 
     commits = [
         ("a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "Initial commit", alice),
@@ -86,9 +121,16 @@ def seed_dev_data(db: Session, plans: dict[str, Plan]) -> None:
     ]
     for i, (sha, message, author) in enumerate(commits):
         get_or_create(
-            db, Commit, {"repository_id": repo.id, "sha": sha},
-            {"branch_id": main.id, "message": message, "author_name": author.name,
-             "author_email": author.email, "committed_at": now - timedelta(days=3 - i)},
+            db,
+            Commit,
+            {"repository_id": repo.id, "sha": sha},
+            {
+                "branch_id": main.id,
+                "message": message,
+                "author_name": author.name,
+                "author_email": author.email,
+                "committed_at": now - timedelta(days=3 - i),
+            },
         )
 
 
