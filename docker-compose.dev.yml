@@ -1,0 +1,39 @@
+# Development overlay: source mounts, hot reload, seed data, published ports.
+# Never use this file for a shared or production environment.
+#
+#   cp .env.example .env
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  db:
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  migrate:
+    # Idempotent seed data (plans and the demo users used by /auth/dev-login).
+    command: ["sh", "-c", "alembic upgrade head && python -m app.db.seed"]
+
+  backend:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+  frontend:
+    build:
+      target: dev
+    environment:
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?Set PUBLIC_API_URL}
+      # Bind-mounted sources do not always deliver file events (e.g. Docker Desktop on Windows).
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
