@@ -99,6 +99,9 @@ jobs:
             hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d \
             hadolint "${dockerfiles[@]}"
 
+      # docker-compose.<env>.yml files are overlays: they are validated merged with
+      # the docker-compose.yml in the same directory. A sibling .env.example provides
+      # placeholder values for required variables.
       - name: Validate Docker Compose files
         if: steps.detect.outputs.compose-files != '0'
         run: |
@@ -107,8 +110,15 @@ jobs:
               echo "::notice file=${file}::Compose file is empty; there is nothing to validate."
               continue
             fi
-            echo "Validating ${file}"
-            docker compose -f "$file" config --quiet --no-env-resolution
+            dir=$(dirname "$file")
+            args=()
+            if [[ "$(basename "$file")" =~ ^docker-compose\..+\.ya?ml$ && -f "$dir/docker-compose.yml" ]]; then
+              args+=(-f "$dir/docker-compose.yml")
+            fi
+            args+=(-f "$file")
+            if [[ -f "$dir/.env.example" ]]; then args+=(--env-file "$dir/.env.example"); fi
+            echo "Validating ${args[*]}"
+            docker compose "${args[@]}" config --quiet --no-env-resolution
           done < "$RUNNER_TEMP/compose-files"
 
       - name: Scan for security misconfigurations (Trivy)
