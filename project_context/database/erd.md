@@ -817,4 +817,3 @@ erDiagram
     teams ||--o{ audit_logs : "team_id"
     users |o--o{ audit_logs : "actor_user_id"
 ```
-
