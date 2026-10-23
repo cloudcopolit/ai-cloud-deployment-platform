@@ -21,9 +21,9 @@ Put the contracts in **one shared package** imported by both the backend and the
 
 | Rule | How |
 |---|---|
-| Strict validation | every model inherits `Strict` → `extra="forbid"`, `validate_assignment=True` |
-| Evidence-backed detections | `Detection` base = `confidence ∈ [0,1]` + up to 10 `Evidence(file_path, lines, short redacted excerpt)` |
-| No secrets | `EnvVar` has **name only**; excerpts are capped at 300 chars and must be redacted; error `details` hold only scalar values |
+| Strict validation | every model inherits `Strict` → `extra="forbid"`, `strict=True`, `validate_assignment=True` |
+| Evidence-backed detections | `Detection` base = `confidence ∈ [0,1]` + up to 10 `Evidence(file_path, lines, detector, content_sha256)`; excerpts are not part of reports |
+| No secrets or source excerpts | `EnvVar` has **name only**; redacted excerpts may be sent transiently to the LLM but are excluded from evidence, API responses, persistence, and logs; error `details` hold only scalar values |
 | One of result/error | `AgentResult[T]` validator: `ok=True` ⇒ result and no error; `ok=False` ⇒ error and no result |
 | Planning is read-only | `ArchitecturePlan.requires_human_approval: Literal[True]` — an LLM cannot output `false` |
 | Versioned | `schema_version: "1.0"` in both documents; `report_schema_version` column proposed on `repository_analyses` |
@@ -52,6 +52,8 @@ Put the contracts in **one shared package** imported by both the backend and the
 | `overall_confidence` | float 0–1 | – | **confidence scores** |
 | `meta` | `AnalysisMeta(analyzer_version, files_scanned/skipped, truncated, duration_ms, model?)` | – | reproducibility |
 
+`is_deployable` is a derived property used by the Orchestrator; it is not serialized into the report contract.
+
 ### Example (abridged; numbers in `meta` are illustrative)
 
 ```json
@@ -61,12 +63,15 @@ Put the contracts in **one shared package** imported by both the backend and the
                   "commit_sha": "c3d4e5f60718293a4b5c6d7e8f90123456789012" },
   "summary": "FastAPI backend with PostgreSQL and a Dockerfile.",
   "languages": [ { "name": "python", "version": "3.12", "share_percent": 91.0, "confidence": 0.98,
-                   "evidence": [ { "file_path": ".python-version", "line_start": 1 } ] } ],
+                   "evidence": [ { "file_path": ".python-version", "line_start": 1,
+                                   "detector": "python_version_file", "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } ] } ],
   "frameworks": [ { "name": "fastapi", "version": "0.143.0", "kind": "backend", "confidence": 0.99,
-                    "evidence": [ { "file_path": "requirements.txt", "line_start": 7 } ] } ],
+                    "evidence": [ { "file_path": "requirements.txt", "line_start": 7,
+                                    "detector": "dependency_manifest", "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } ] } ],
   "services": [ { "name": "api", "service_type": "api", "language": "python", "framework": "fastapi",
                   "path": ".", "port": 8000, "has_dockerfile": true, "health_endpoint": "/health/db",
-                  "confidence": 0.95, "evidence": [ { "file_path": "Dockerfile" } ] } ],
+                  "confidence": 0.95, "evidence": [ { "file_path": "Dockerfile", "detector": "dockerfile",
+                                                        "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } ] } ],
   "data_stores": [ { "engine": "postgresql", "inferred_from": "psycopg in requirements.txt", "confidence": 0.97 } ],
   "env_vars": [ { "name": "DATABASE_URL", "required": true, "referenced_in": "app/core/config.py" } ],
   "blockers": [],

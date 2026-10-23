@@ -49,7 +49,7 @@ flowchart LR
 ### B1 · Teams, authorization, projects (~1–2 weeks)
 | ID | Task | Depends | Size | Done when |
 |---|---|---|:-:|---|
-| B1.1 | **Personal team on first login**: team + OWNER member + FREE subscription in one transaction | B0.7 | M | new user can immediately create a project |
+| B1.1 | **Personal team on first login**: team + OWNER member + FREE subscription in one transaction | B0.7 | M | new user has a personal OWNER team and active FREE subscription |
 | B1.2 | `require_team_role` + tenant-scoped getters (`08` §3) | B1.1 | M | role matrix tests + IDOR tests |
 | B1.3 | `teams` module: list/get/rename, members add/role/remove, last-OWNER guard | B1.2 | M | |
 | B1.4 | `billing`: current plan, usage vs `limits`, `PLAN_LIMIT_REACHED` | B1.2 | S | |
@@ -119,7 +119,7 @@ flowchart LR
 | A3.1 | `CommunicationModule` Protocol + in-process implementation | A1 | S | |
 | A3.2 | GitHub adapter (installation-token resolution, rate-limit handling, error normalization) | B2.1 | M | `GITHUB_*` codes map correctly |
 | A3.3 | LLM adapter (timeouts, usage accounting, error normalization) | A0.4 | M | `agent_runs.usage` filled |
-| A3.4 | AWS read-only discovery adapter (optional, Q-5) | B-aws | M | non-fatal on failure |
+| A3.4 | AWS read-only discovery adapter (optional; implement only if Q-5 accepts discovery for MVP) | A0.4 (Q-5 accepted) | M | non-fatal warning on failure; otherwise omitted when Q-5 defers discovery |
 | **Milestone ★ MVP-1** | **Submit a repo → job → persisted `AnalysisReport` / `BLOCKED` retrievable via API** | B3, A2, A3 | | demo script (§6) |
 
 ### A4 · Architecture Agent (Phase 5)

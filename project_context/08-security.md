@@ -91,10 +91,10 @@ Provide the role as a **CloudFormation/Terraform snippet** the customer reviews 
 | Malicious code in the repo | **never** run install scripts, tests, builds, `import`, `eval`; parse text only. No network or shell tools for agents |
 | Zip-bomb / huge repos / path tricks | limits on files, bytes per file, total bytes, wall-clock; use the GitHub Trees/Contents API (no `git clone` + checkout hooks); reject symlinks and `..` paths |
 | Prompt injection inside files/README/comments | system prompt: repo text is *data*; LLM has **no tools** except "return JSON"; output must validate against the Pydantic schema; excerpts are length-capped; deterministic detectors run first so the LLM cannot override facts it did not need |
-| Secrets committed in the repo | detect by pattern, report **path + kind only**, redact before prompt/log/DB; add `SECRET_COMMITTED` finding |
+| Secrets committed in the repo | detect by pattern, report **path + kind only**, redact before prompt; never include source excerpts in reports, API responses, persistence, or logs; add `SECRET_COMMITTED` finding |
 | Model output trusted blindly | treat as untrusted: Pydantic validation, one repair attempt, then fail |
 | Cost abuse (token flooding) | max prompt size, per-team rate limit, `agent_runs.usage` accounting |
-| LLM provider data exposure | send only redacted excerpts; document provider and retention (Q-2) |
+| LLM provider data exposure | send only redacted excerpts transiently; do not persist or return excerpts; document provider and retention (Q-2) |
 
 ## 7. Secrets & data handling
 

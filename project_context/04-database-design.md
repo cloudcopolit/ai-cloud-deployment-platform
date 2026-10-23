@@ -158,7 +158,7 @@ None of these are decided; each is cheap to adopt **before** the migration is wr
 | P4 | Add `requested_by` (nullable FK users) and `report_schema_version` | who triggered it; contract versioning | `repository_analyses` |
 | P5 | Extend `repository_analyses.status` with **`BLOCKED`** and **`TIMED_OUT`** | brief: "Save findings & blocked"; timeouts are first-class (ADR‑007) | `repository_analyses` |
 | P6 | Generalize **`approvals`** to deployments (`deployment_id`, exactly-one CHECK) | README Phase 2 "controlled deployment with approval"; brief "no LLM authorization" (ADR‑011) | `approvals` |
-| P7 | Uniqueness: `(team_id, aws_account_id)`, `(architecture_id, version_number)`, step/task order | integrity | several |
+| P7 | Uniqueness: live AWS accounts `(team_id, aws_account_id)` excluding `DISCONNECTED` rows, `(architecture_id, version_number)`, step/task order | integrity and account reconnection | several |
 | P8 | **Active-deployment unique index** per project | prevent concurrent Terraform runs against one project | `deployments` |
 | P9 | Add `usage jsonb` (tokens, latency) to `agent_runs` | cost control + evaluation (Phase 4) | `agent_runs` |
 | P10 | Add **`audit_logs`** | README lists an *Audit* domain not in the ERD | new |

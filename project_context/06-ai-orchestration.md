@@ -101,7 +101,8 @@ class JobState(TypedDict, total=False):
     infra_findings: dict | None
     report: AnalysisReport | None
     plan: ArchitecturePlan | None
-    error: ErrorInfo | None
+    fatal_error: ErrorInfo | None
+    warnings: list[ErrorInfo]
     outcome: str          # "SUCCESS" | "BLOCKED" | "FAILED" | "TIMED_OUT"
 
 g = StateGraph(JobState)
@@ -120,17 +121,25 @@ g.add_edge(START, "mark_running")
 g.add_edge("mark_running", "analyze_repo")
 g.add_edge("mark_running", "discover_infra")          # parallel fan-out
 g.add_edge(["analyze_repo", "discover_infra"], "validate_combine")  # fan-in
-g.add_conditional_edges("validate_combine", lambda s: "fail" if s.get("error") else "ok",
-                        {"ok": "evaluate", "fail": "save_failure"})
+g.add_conditional_edges(
+    "validate_combine",
+    lambda s: "fail" if s.get("fatal_error") else "ok",
+    {"ok": "evaluate", "fail": "save_failure"},
+)
 g.add_conditional_edges("evaluate", lambda s: s["outcome"],
                         {"BLOCKED": "save_blocked", "SUCCESS": "architect", "FAILED": "save_failure"})
 g.add_edge("architect", "validate_plan")
-g.add_conditional_edges("validate_plan", lambda s: "fail" if s.get("error") else "ok",
-                        {"ok": "save_success", "fail": "save_failure"})
+g.add_conditional_edges(
+    "validate_plan",
+    lambda s: "fail" if s.get("fatal_error") else "ok",
+    {"ok": "save_success", "fail": "save_failure"},
+)
 for n in ("save_blocked", "save_success", "save_failure"):
     g.add_edge(n, END)
 graph = g.compile()
 ```
+
+Repository, agent, and schema-validation failures populate `fatal_error`; optional AWS discovery failures are recorded in `warnings` and must not route the job to `save_failure`. `validate_combine` carries those warnings into the report without replacing the validated repository analysis.
 
 **Milestone ordering (brief):** first ship the graph **without** `architect`/`validate_plan` (analysis-only), prove it end-to-end, *then* add the Architecture Agent (brief Phase 5).
 
@@ -190,7 +199,7 @@ flowchart TD
 | Principle | Detail |
 |---|---|
 | **Deterministic first, LLM second** | Parse `requirements.txt`, `pyproject.toml`, `package.json`, `pom.xml`, `build.gradle`, `go.mod`, `Dockerfile`, `docker-compose.yml`, CI files, `*.tf`, `.env.example` with real parsers. Use the LLM only to interpret ambiguity (service boundaries, entry points). Cheaper, reproducible, testable. |
-| **Evidence for every claim** | each detection has `Evidence(file_path, line range, short redacted excerpt)` and `confidence ∈ [0,1]` |
+| **Evidence for every claim** | each detection has `Evidence(file_path, line range, detector, content hash)` and `confidence ∈ [0,1]`; source excerpts may be used transiently for LLM interpretation but are never included in the report, API response, or persisted analysis data |
 | **No code execution** | never run install scripts, tests, build tools, or imports from the repo. Parse text only. |
 | **Limits** | max files, max bytes per file, max total bytes, wall-clock budget; set `meta.truncated=true` when hit |
 | **Secrets** | env var **names** only (`EnvVar`); if a committed secret is detected, report the **path and kind** as a finding, never the value; redact before anything reaches a prompt or log |

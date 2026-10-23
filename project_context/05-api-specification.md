@@ -102,6 +102,8 @@ Role column: **M** = MEMBER+, **A** = ADMIN+, **O** = OWNER.
 | POST | `/analyses/{analysis_id}/answers` | M | user supplies `missing_info` answers → creates a new analysis |
 | POST | `/analyses/{analysis_id}/cancel` | M | |
 
+The report returned by the API and persisted in `analysis_data` contains evidence metadata only; repository source excerpts are never included.
+
 Example — `GET /analyses/{id}` when blocked:
 ```json
 {
@@ -113,7 +115,8 @@ Example — `GET /analyses/{id}` when blocked:
     "schema_version": "1.0",
     "summary": "FastAPI service with PostgreSQL, Dockerfile present.",
     "services": [ { "name": "api", "service_type": "api", "language": "python", "framework": "fastapi", "port": 8000, "confidence": 0.93 } ],
-    "blockers": [ { "code": "NO_HEALTH_ENDPOINT", "severity": "BLOCKER", "message": "No health check route found.", "suggested_action": "Add GET /health." } ],
+    "blockers": [],
+    "warnings": [ { "code": "NO_HEALTH_ENDPOINT", "severity": "WARNING", "message": "No health check route found.", "suggested_action": "Add GET /health." } ],
     "missing_info": [ { "key": "database_engine", "question": "Which managed database should be used?", "required": true } ],
     "overall_confidence": 0.88
   }

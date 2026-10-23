@@ -20,7 +20,8 @@ flowchart TB
     gh[GitHub<br/>OAuth ✅ · GitHub App 📋 · webhooks 📋]
     llm[LLM provider]
     subgraph CUST[Customer AWS account]
-        role[IAM role + External ID]
+        readonly[cloudpilot-readonly IAM role + External ID]
+        deploy[cloudpilot-deploy IAM role + External ID]
         res[Deployed resources]
         mon[CloudWatch / Prometheus]
     end
@@ -32,11 +33,11 @@ flowchart TB
     ai --> comm
     comm --> gh
     comm --> llm
-    comm -. STS AssumeRole .-> role
-    tf -. STS AssumeRole .-> role
-    role --- res
+    comm -. STS AssumeRole (read-only discovery) .-> readonly
+    tf -. STS AssumeRole (deployment) .-> deploy
+    deploy --- res
     mon -. metrics/alerts .-> api
-    api --> tf
+    worker -. approved deployment .-> tf
 ```
 
 ## 2. Components and their single responsibility

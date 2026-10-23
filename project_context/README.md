@@ -81,7 +81,7 @@ Update the matching file **in the same pull request** as the change:
 ## Folder layout
 
 ```
-.project-context/
+project_context/
 ├── README.md
 ├── AGENTS.md                      # rules + workflow for AI assistants
 ├── 00-project-overview.md

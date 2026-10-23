@@ -46,7 +46,7 @@
 |---|---|---|---|
 | GET | `/health/db` | – | `SELECT 1` → `{"database":"ok"}` |
 | GET | `/auth/github/login` | – | random `state` → HttpOnly cookie `oauth_state` (10 min) → 307 to GitHub |
-| GET | `/auth/github/callback` | – | validates state → exchanges code → fetches profile (+ primary verified email fallback) → upserts user → sets `access_token` cookie → 302 `{FRONTEND_URL}/dashboard`; any failure → `/login?error=github_failed` |
+| GET | `/auth/github/callback` | – | validates state → exchanges code → fetches profile (+ primary verified email fallback) → upserts user → sets `access_token` cookie → 302 `{FRONTEND_URL}/dashboard`; handled GitHub exchange/profile failures → `/login?error=github_failed` |
 | GET | `/auth/me` | ✔ | returns `UserRead` |
 | POST | `/auth/logout` | – | clears cookie, 204 |
 | POST | `/auth/dev-login` | – | **development only** (404 otherwise): `{github_user_id}` → `{access_token, token_type}` |

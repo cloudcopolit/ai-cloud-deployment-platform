@@ -43,7 +43,7 @@ Rule: **no defaults for secrets**; `.env.example` lists every key with a dummy v
 | Line endings mixed (I3) | `.gitattributes`: `* text=auto eol=lf`; normalize in one commit |
 | Stray unpinned `pyjwt`/`httpx` in `requirements.txt` (I2) | delete the two lines |
 | Dockerfile mentions `docker-compose.test.yml` (I10) | add the file or fix the comment |
-| Monorepo layout | 💡 `backend/ ai/ frontend/ contracts/ .project-context/ ruff.toml` with path-filtered CI |
+| Monorepo layout | 💡 `backend/ ai/ frontend/ contracts/ project_context/ ruff.toml` with path-filtered CI |
 
 ## 4. Docker ✅/💡
 
@@ -59,13 +59,13 @@ services:
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U cloudpilot"], interval: 5s, retries: 10 }
   api:
     build: { context: ./backend, target: runtime }
-    env_file: .env
+    env_file: ./backend/.env
     depends_on: { db: { condition: service_healthy } }
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports: [ "8000:8000" ]
   worker:                       # same image, different command (see 03 §7)
     build: { context: ./backend, target: runtime }
-    env_file: .env
+    env_file: ./backend/.env
     depends_on: { db: { condition: service_healthy } }
     command: python -m app.jobs.worker
 volumes: { pgdata: {} }
@@ -133,4 +133,4 @@ PG automated backups + PITR (RDS) or nightly `pg_dump` for the demo; **practice 
 
 ## 10. Definition of done for any backend change
 
-Ruff clean · mypy clean · tests added and ≥ 90 % coverage · migration generated, reviewed, round-trips · docs in `.project-context` updated in the same PR (README table) · no secrets in diff · error paths return the envelope.
+Ruff clean · mypy clean · tests added and ≥ 90 % coverage · migration generated, reviewed, round-trips · docs in `project_context/` updated in the same PR (README table) · no secrets in diff · error paths return the envelope.

@@ -22,7 +22,7 @@ sequenceDiagram
     API->>GH: GET /user (+ /user/emails if hidden)
     API->>DB: upsert users (by github_user_id)
     API-->>B: 302 → {FRONTEND_URL}/dashboard<br/>Set-Cookie access_token (HttpOnly, SameSite=Lax, 30 min)
-    Note over API,DB: any failure → 302 {FRONTEND_URL}/login?error=github_failed
+    Note over API,GH: handled GitHub exchange/profile failures → 302 {FRONTEND_URL}/login?error=github_failed
     B->>API: GET /auth/me (cookie)
     API->>DB: load user
     API-->>B: UserRead
@@ -131,6 +131,8 @@ sequenceDiagram
     API-->>U: role template (trust CloudPilot principal + ExternalId condition)
     U->>C: creates IAM role from template
     U->>API: POST /aws-accounts/{id}/verify {role_arn}
+    API->>DB: authorize aws_accounts/{id} against the caller's team
+    API->>API: validate allowed partition, expected CloudPilot IAM role, and account ID matches the authorized record
     API->>STS: AssumeRole(role_arn, ExternalId)
     alt success
         STS-->>API: short-lived credentials (memory only)
@@ -206,16 +208,17 @@ sequenceDiagram
     API->>AG: diagnose(incident)  [agent_runs]
     AG-->>API: root_cause, diagnosis, proposed healing_actions + risk_level
     API->>DB: UPDATE incidents (INVESTIGATING), INSERT healing_actions (PROPOSED)
-    alt risk LOW and policy allows auto-heal
-        API->>TF: execute action
-    else risk MEDIUM/HIGH
+    alt healing action changes AWS
         API->>DB: INSERT approvals (PENDING)
         U->>API: approve / reject
+        API->>TF: execute action only after authorized approval
+    else action does not change AWS and policy allows auto-heal
+        API->>TF: execute action
     end
     TF->>DB: healing_actions EXECUTING → SUCCEEDED/FAILED
     API->>DB: incident MITIGATING → RESOLVED → CLOSED
 ```
-"Policy-based self-healing" (README Phase 3) means an explicit, reviewable policy decides which low-risk actions may run without a human. **Default = require approval.** Any action that changes AWS still passes through the deploy-role boundary; an LLM never holds the authority itself.
+"Policy-based self-healing" (README Phase 3) means an explicit, reviewable policy may auto-execute only actions that do not change AWS. **Default = require approval.** Every AWS-changing action requires a recorded, authorized human approval before execution through the deploy-role boundary; an LLM never holds the authority itself.
 
 ## 9. Job claiming & recovery 💡
 

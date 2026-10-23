@@ -1,7 +1,7 @@
 # AGENTS.md — instructions for AI coding assistants (Claude, Copilot, Cursor, Codex …)
 
 > Read this file first, then follow the task-specific reading list. If a human gives you a roadmap ID (e.g. `B1.1`), the row in `11-implementation-roadmap.md` is your spec.
-> (To make Claude Code pick this up automatically, add a root `CLAUDE.md` containing: `Read .project-context/AGENTS.md before any change.`)
+> (To make Claude Code pick this up automatically, add a root `CLAUDE.md` containing: `Read project_context/AGENTS.md before any change.`)
 
 ## 1. What you are building
 CloudPilot: GitHub repo → analysis → AWS architecture proposal → human review → (later) Terraform deployment into the **user's own AWS account**. FastAPI + PostgreSQL 16 + SQLAlchemy 2 + Alembic + Pydantic 2. AI layer: Orchestrator (LangGraph) + Analysis Agent + Architecture Agent + Communication Module. Full picture: `00`, `02`.

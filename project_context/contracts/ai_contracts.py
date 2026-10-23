@@ -1,12 +1,13 @@
 """CloudPilot AI contracts (DRAFT v1.0) - Pydantic v2, Python 3.12.
 
 Shared by the backend and the AI layer. One definition, two consumers.
-Explained in ai-contracts.md. Verified by tests at the bottom of this folder's README (run: python ai_contracts.py).
+Explained in ai-contracts.md. Verified by the contract tests and self-check
+(`python ai_contracts.py`).
 
 Rules encoded here:
 - strict: unknown fields rejected, assignment validated
-- every detection carries evidence + confidence
-- NO secret values anywhere (env var NAMES only, redacted short excerpts)
+- every detection carries evidence metadata + confidence; source excerpts are not part of reports
+- NO secret values anywhere (env var NAMES only)
 - an AgentResult is exactly one of result / error
 - ArchitecturePlan.requires_human_approval is Literal[True]: an LLM cannot output False
 """
@@ -16,13 +17,18 @@ from enum import StrEnum
 from typing import Annotated, Generic, Literal, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 SCHEMA_VERSION = "1.0"
 
 
 class Strict(BaseModel):
-    model_config = ConfigDict(extra="forbid", validate_assignment=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        validate_assignment=True,
+        str_strip_whitespace=True,
+    )
 
 
 Confidence = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -143,7 +149,8 @@ class Evidence(Strict):
     file_path: Annotated[str, StringConstraints(max_length=1024)]
     line_start: int | None = Field(default=None, ge=1)
     line_end: int | None = Field(default=None, ge=1)
-    excerpt: Annotated[str, StringConstraints(max_length=300)] | None = None  # must be redacted
+    detector: ShortStr
+    content_sha256: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
     @model_validator(mode="after")
     def _lines(self) -> "Evidence":
@@ -287,7 +294,6 @@ class AnalysisReport(Strict):
             raise ValueError("warnings[] must not contain severity=BLOCKER")
         return self
 
-    @computed_field  # type: ignore[prop-decorator]
     @property
     def is_deployable(self) -> bool:
         """Orchestrator gate: no blockers, no unsupported tech, no REQUIRED info missing."""
@@ -334,7 +340,7 @@ class CostEstimate(Strict):
 
     @model_validator(mode="after")
     def _sum(self) -> "CostEstimate":
-        if self.lines and abs(sum(l.monthly_usd for l in self.lines) - self.monthly_total) > 0.01:
+        if abs(sum(line.monthly_usd for line in self.lines) - self.monthly_total) > 0.01:
             raise ValueError("monthly_total must equal the sum of lines")
         return self
 
@@ -382,7 +388,15 @@ if __name__ == "__main__":  # self-check: python ai_contracts.py
     assert not blocked.is_deployable
     for bad in (
         lambda: AnalysisReport(repository=repo, summary="x", overall_confidence=1.5, meta=meta),
-        lambda: AnalysisReport(repository=repo, summary="x", overall_confidence=0.5, meta=meta, nope=1),
+        lambda: AnalysisReport.model_validate(
+            {
+                "repository": repo,
+                "summary": "x",
+                "overall_confidence": 0.5,
+                "meta": meta,
+                "nope": 1,
+            }
+        ),
         lambda: AgentResult[AnalysisReport](ok=True),
         lambda: EnvVar(name="lower_case"),
     ):
@@ -393,7 +407,8 @@ if __name__ == "__main__":  # self-check: python ai_contracts.py
         else:
             raise SystemExit("expected validation failure")
     plan = ArchitecturePlan(
-        source_analysis_id="00000000-0000-0000-0000-000000000001", region="eu-central-1",
+        source_analysis_id=UUID("00000000-0000-0000-0000-000000000001"),
+        region="eu-central-1",
         components=[Component(id="api", type=ComponentType.ECS_SERVICE, rationale="runs the API container")],
         security=SecurityDesign(network_isolation="private subnets", encryption_at_rest=True,
                                 encryption_in_transit=True, secrets_strategy="Secrets Manager"),

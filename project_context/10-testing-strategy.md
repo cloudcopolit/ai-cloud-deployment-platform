@@ -6,7 +6,7 @@
 
 1. **Test behavior at the boundary you own**: HTTP for routers, service functions for business rules, schemas for contracts.
 2. **Real PostgreSQL, not SQLite** — partial unique indexes, `CHECK`, JSONB and `SKIP LOCKED` behave differently elsewhere ✅ (already the case).
-3. **No network in tests.** GitHub, AWS and the LLM are replaced by fakes behind the `Protocol`s (`03` §1, `06` §6). A test that needs the internet is a bug.
+3. **No network in the application test suite.** GitHub, AWS and the LLM are replaced by fakes behind the `Protocol`s (`03` §1, `06` §6). Networked sandbox deployment tests are a separate, explicitly provisioned exception; they must be isolated from normal test runs and destroy deployed resources afterward.
 4. **Contracts first.** A change to `ai_contracts.py` must come with valid *and* invalid fixtures.
 5. **Every invariant in `04` §5 has a test** that tries to break it.
 6. **Security properties are tests**, not intentions (`08` §11).

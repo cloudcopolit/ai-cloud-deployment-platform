@@ -76,7 +76,7 @@
 | Column | Type | Null | Default | Key / constraint | Notes |
 |---|---|:-:|---|---|---|
 | `id` | uuid | no |  | PK |  |
-| `code` | varchar(32) | no |  | UNIQUE | FREE | STANDARD · inferred |
+| `code` | varchar(32) | no |  | UNIQUE | FREE / STANDARD · inferred |
 | `name` | varchar(100) | no |  |  | inferred |
 | `price_monthly` | numeric(10,2) | no | `0` |  | inferred |
 | `limits` | jsonb | no |  |  | {max_projects,max_team_members,max_deployments_per_month} · inferred |
@@ -191,7 +191,7 @@ Extra constraints / indexes:
 | `report_schema_version` | varchar(8) | yes |  |  | **New** · 💡 contract version (P4) |
 | `error_code` | varchar(64) | yes |  |  |  |
 | `error_message` | text | yes |  |  | safe to show to users |
-| `analysis_data` | jsonb | yes |  |  | validated AnalysisReport |
+| `analysis_data` | jsonb | yes |  |  | validated AnalysisReport with evidence metadata only; no source excerpts |
 
 Extra constraints / indexes:
 
@@ -206,7 +206,7 @@ Extra constraints / indexes:
 | `id` | uuid | no |  | PK |  |
 | `analysis_id` | uuid | no |  | FK → repository_analyses.id |  |
 | `name` | varchar(255) | no |  |  |  |
-| `service_type` | varchar(32) | no |  |  | api | web | worker | cron | database ... |
+| `service_type` | varchar(32) | no |  |  | api / web / worker / cron / database ... |
 | `language` | varchar(64) | yes |  |  |  |
 | `framework` | varchar(64) | yes |  |  |  |
 | `path` | varchar(1024) | no | `'.'` |  |  |
@@ -279,7 +279,7 @@ Extra constraints / indexes:
 
 Extra constraints / indexes:
 
-- `ALTER TABLE aws_accounts ADD CONSTRAINT uq_aws_accounts_team_id_aws_account_id UNIQUE (team_id, aws_account_id);`
+- `CREATE UNIQUE INDEX uq_aws_accounts_team_id_aws_account_id ON aws_accounts (team_id, aws_account_id) WHERE status <> 'DISCONNECTED';` — disconnected rows do not block reconnecting the same account.
 - `ALTER TABLE aws_accounts ADD CONSTRAINT uq_aws_accounts_external_id UNIQUE (external_id);`
 
 ## deployments
@@ -377,7 +377,7 @@ Extra constraints / indexes:
 | `project_id` | uuid | no |  | FK → projects.id |  |
 | `deployment_id` | uuid | no |  | FK → deployments.id |  |
 | `severity` | varchar(16) | no |  | CHECK: LOW, MEDIUM, HIGH, CRITICAL | 💡 values |
-| `source` | varchar(32) | no |  |  | PROMETHEUS | CLOUDWATCH |
+| `source` | varchar(32) | no |  |  | PROMETHEUS / CLOUDWATCH |
 | `metric_name` | varchar(255) | no |  |  |  |
 | `threshold` | numeric | yes |  |  |  |
 | `actual_value` | numeric | yes |  |  |  |

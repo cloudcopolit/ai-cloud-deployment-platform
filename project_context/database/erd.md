@@ -489,6 +489,8 @@ erDiagram
     teams ||--o{ aws_accounts : "team_id"
 ```
 
+Only non-disconnected AWS accounts are unique by `(team_id, aws_account_id)`; a `DISCONNECTED` row does not prevent reconnecting the account.
+
 ## 10. Deployment
 
 Tables: `deployments`, `deployment_steps`, `infrastructure_resources` · context: `projects`, `repositories`, `commits`, `architecture_versions`, `aws_accounts`, `users`
