@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Code Architect Adaptive</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
+    window.mermaid = mermaid;
+  </script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">V0.3 · ADAPTIVE ROUTING + CASCADING</p>
+      <h1>Code Architect</h1>
+      <p class="lede">Describe what you need. If your request already contains enough intent, analysis starts immediately. Otherwise the app asks only the missing multiple-choice questions, then uses cost-aware routing and quality-based escalation.</p>
+    </header>
+
+    <section class="panel">
+      <form id="analyze-form">
+        <label>
+          Repository ZIP
+          <input id="repository" name="repository" type="file" accept=".zip" required />
+        </label>
+        <label>
+          What should the architect focus on?
+          <textarea id="prompt" name="prompt" rows="5" placeholder="Example: Do a deep production-readiness review focused on reliability and AWS deployment while minimizing model cost."></textarea>
+        </label>
+        <label>
+          Experimental mode
+          <select id="routing_mode" name="routing_mode">
+            <option value="auto" selected>Auto — route + cascade when needed</option>
+            <option value="cheap">Cheap-only baseline</option>
+            <option value="strong">Strong-only baseline</option>
+          </select>
+        </label>
+        <button id="submit" type="submit">Analyze architecture</button>
+      </form>
+      <p id="status" class="status"></p>
+    </section>
+
+    <section id="clarification" class="panel hidden">
+      <p class="eyebrow">A FEW DETAILS ARE STILL NEEDED</p>
+      <h2>Clarify your intent</h2>
+      <p class="lede small">Only missing required information is requested. Choose an option or select Other and add your own value.</p>
+      <form id="clarification-form"></form>
+      <button id="continue" type="button">Continue analysis</button>
+    </section>
+
+    <section id="results" class="hidden">
+      <article class="panel route-panel">
+        <p class="eyebrow">ROUTING / CASCADE TRACE</p>
+        <div id="routing-summary"></div>
+      </article>
+
+      <div class="grid">
+        <article class="panel">
+          <p class="eyebrow">SUMMARY</p>
+          <h2 id="project-name"></h2>
+          <p id="summary"></p>
+          <div id="stack" class="chips"></div>
+        </article>
+        <article class="panel">
+          <p class="eyebrow">ARCHITECTURE</p>
+          <div id="diagram" class="diagram"></div>
+        </article>
+      </div>
+
+      <div class="grid">
+        <article class="panel">
+          <p class="eyebrow">COMPONENTS</p>
+          <div id="components"></div>
+        </article>
+        <article class="panel">
+          <p class="eyebrow">RECOMMENDATIONS</p>
+          <div id="recommendations"></div>
+        </article>
+      </div>
+
+      <article class="panel">
+        <p class="eyebrow">ASSUMPTIONS / UNCERTAINTY</p>
+        <ul id="assumptions"></ul>
+      </article>
+
+      <details class="panel">
+        <summary>Raw architecture JSON</summary>
+        <pre id="raw-json"></pre>
+      </details>
+    </section>
+  </main>
+
+<script>
+const analyzeForm = document.getElementById("analyze-form");
+const clarificationPanel = document.getElementById("clarification");
+const clarificationForm = document.getElementById("clarification-form");
+const continueBtn = document.getElementById("continue");
+const statusEl = document.getElementById("status");
+const results = document.getElementById("results");
+const submit = document.getElementById("submit");
+let currentIntent = {};
+let currentQuestions = [];
+
+const optionLabels = {
+  understand_architecture: "Understand the current architecture",
+  find_architecture_problems: "Find architectural problems",
+  production_readiness: "Prepare for production",
+  scalability_review: "Improve / review scalability",
+  security_review: "Security review",
+  migration_refactor: "Plan a migration or refactor",
+  quick: "Quick overview",
+  standard: "Standard architecture review",
+  deep: "Deep technical review",
+  production: "Production-readiness assessment"
+};
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function priorityBadge(priority) {
+  return `<span class="priority ${escapeHtml(priority)}">${escapeHtml(priority)}</span>`;
+}
+
+function renderQuestions(questions) {
+  currentQuestions = questions;
+  clarificationForm.innerHTML = questions.map((q, qi) => `
+    <fieldset class="question" data-field="${escapeHtml(q.field)}">
+      <legend>${escapeHtml(q.label)}</legend>
+      ${q.options.map((option, oi) => `
+        <label class="choice">
+          <input type="radio" name="q-${qi}" value="${escapeHtml(option)}" ${oi === 0 ? "" : ""}>
+          <span>${escapeHtml(optionLabels[option] || option)}</span>
+        </label>
+      `).join("")}
+      ${q.allow_other ? `
+        <label class="choice other-choice">
+          <input type="radio" name="q-${qi}" value="__other__">
+          <span>Other</span>
+        </label>
+        <input class="other-input" id="other-${qi}" type="text" placeholder="Write your own answer" />
+      ` : ""}
+    </fieldset>
+  `).join("");
+  clarificationPanel.classList.remove("hidden");
+}
+
+function collectClarifications() {
+  const updates = {};
+  currentQuestions.forEach((q, qi) => {
+    const selected = clarificationForm.querySelector(`input[name="q-${qi}"]:checked`);
+    if (!selected) return;
+    let value = selected.value;
+    if (value === "__other__") {
+      value = document.getElementById(`other-${qi}`).value.trim();
+    }
+    if (value) updates[q.field] = value;
+  });
+  return updates;
+}
+
+async function checkIntent() {
+  const data = new FormData();
+  data.append("prompt", document.getElementById("prompt").value);
+  data.append("answers_json", "{}");
+  const response = await fetch("/api/intake", { method: "POST", body: data });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.detail || "Intent extraction failed.");
+  currentIntent = payload.intent;
+  if (!payload.complete) {
+    renderQuestions(payload.questions || []);
+    statusEl.textContent = "A few details are missing. Answer the questions below.";
+    return false;
+  }
+  return true;
+}
+
+async function runAnalysis() {
+  clarificationPanel.classList.add("hidden");
+  results.classList.add("hidden");
+  statusEl.textContent = "Analyzing repository with adaptive routing and cascading…";
+  submit.disabled = true;
+  continueBtn.disabled = true;
+
+  const data = new FormData();
+  data.append("repository", document.getElementById("repository").files[0]);
+  data.append("prompt", document.getElementById("prompt").value);
+  data.append("routing_mode", document.getElementById("routing_mode").value);
+  data.append("intent_json", JSON.stringify(currentIntent));
+
+  try {
+    const response = await fetch("/api/analyze", { method: "POST", body: data });
+    const payload = await response.json();
+    if (!response.ok) {
+      const detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
+      throw new Error(detail || "Analysis failed.");
+    }
+    renderResults(payload);
+    statusEl.textContent = "Analysis complete.";
+  } finally {
+    submit.disabled = false;
+    continueBtn.disabled = false;
+  }
+}
+
+function renderResults(payload) {
+  const route = payload.routing || {};
+  const q = route.quality || null;
+  document.getElementById("routing-summary").innerHTML = `
+    <div class="route-grid">
+      <div><span class="muted">Initial route</span><strong>${escapeHtml(route.initial_route || "unknown")}</strong></div>
+      <div><span class="muted">Initial model</span><strong>${escapeHtml(route.initial_model || "unknown")}</strong></div>
+      <div><span class="muted">Final tier</span><strong>${escapeHtml(route.final_tier || "unknown")}</strong></div>
+      <div><span class="muted">Final model</span><strong>${escapeHtml(route.final_model || "unknown")}</strong></div>
+      <div><span class="muted">Pre-route score</span><strong>${escapeHtml(route.pre_route_score ?? "?")} / ${escapeHtml(route.pre_route_threshold ?? "?")}</strong></div>
+      <div><span class="muted">Escalated</span><strong>${route.escalated ? "Yes" : "No"}</strong></div>
+    </div>
+    <p class="evidence">${(route.pre_route_reasons || []).map(escapeHtml).join(" · ")}</p>
+    ${q ? `
+      <div class="quality-box">
+        <strong>Cheap-result quality: ${Math.round((q.score || 0) * 100)}%</strong>
+        <span class="muted">threshold ${Math.round((q.threshold || 0) * 100)}%</span>
+        <div class="quality-grid">
+          <span>Evidence ${Math.round((q.evidence_coverage || 0) * 100)}%</span>
+          <span>Connections ${Math.round((q.connection_validity || 0) * 100)}%</span>
+          <span>Goal ${Math.round((q.goal_coverage || 0) * 100)}%</span>
+          <span>Recommendations ${Math.round((q.recommendation_coverage || 0) * 100)}%</span>
+        </div>
+      </div>
+    ` : ""}
+    ${route.escalated ? `<p class="evidence"><strong>Escalation:</strong> ${(route.escalation_reasons || []).map(escapeHtml).join(" · ")}</p>` : ""}
+  `;
+
+  document.getElementById("project-name").textContent = payload.project_name;
+  document.getElementById("summary").textContent = payload.summary;
+  document.getElementById("stack").innerHTML = payload.detected_stack.map(item => `<span class="chip">${escapeHtml(item)}</span>`).join("");
+  document.getElementById("components").innerHTML = payload.components.map(c => `
+    <div class="item">
+      <div class="item-title">${escapeHtml(c.name)} <span class="muted">· ${escapeHtml(c.technology)}</span></div>
+      <p>${escapeHtml(c.description)}</p>
+      ${c.evidence?.length ? `<p class="evidence">Evidence: ${c.evidence.map(escapeHtml).join(", ")}</p>` : ""}
+    </div>
+  `).join("");
+  document.getElementById("recommendations").innerHTML = payload.recommendations.map(r => `
+    <div class="item"><div class="item-title">${priorityBadge(r.priority)} ${escapeHtml(r.title)}</div><p>${escapeHtml(r.rationale)}</p></div>
+  `).join("");
+  document.getElementById("assumptions").innerHTML = (payload.assumptions || []).map(a => `<li>${escapeHtml(a)}</li>`).join("") || "<li>None reported.</li>";
+  document.getElementById("raw-json").textContent = JSON.stringify(payload, null, 2);
+
+  const diagram = document.getElementById("diagram");
+  diagram.innerHTML = "";
+  window.mermaid.render(`diagram-${Date.now()}`, payload.mermaid)
+    .then(rendered => { diagram.innerHTML = rendered.svg; })
+    .catch(() => { diagram.innerHTML = `<pre>${escapeHtml(payload.mermaid)}</pre>`; });
+  results.classList.remove("hidden");
+}
+
+analyzeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!document.getElementById("repository").files.length) return;
+  results.classList.add("hidden");
+  clarificationPanel.classList.add("hidden");
+  statusEl.textContent = "Checking whether more developer context is needed…";
+  submit.disabled = true;
+  try {
+    const complete = await checkIntent();
+    if (complete) await runAnalysis();
+  } catch (error) {
+    statusEl.textContent = error.message;
+    submit.disabled = false;
+  }
+});
+
+continueBtn.addEventListener("click", async () => {
+  const updates = collectClarifications();
+  for (const q of currentQuestions) {
+    if (!updates[q.field]) {
+      statusEl.textContent = `Please answer: ${q.label}`;
+      return;
+    }
+  }
+  currentIntent = { ...currentIntent, ...updates };
+  try {
+    await runAnalysis();
+  } catch (error) {
+    statusEl.textContent = error.message;
+  }
+});
+</script>
+</body>
+</html>
