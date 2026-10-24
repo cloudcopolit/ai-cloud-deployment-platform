@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.application.ports.agents import RepositoryAnalyzer
-from app.domain.analysis.blockers import Blocker, evaluate_blockers
-from app.domain.analysis.models import AnalysisReport, RepositoryRef
-from app.domain.shared.errors import AnalysisFailedError
+from AI.application.ports.agents import RepositoryAnalyzer
+from AI.domain.analysis.blockers import Blocker, evaluate_blockers
+from AI.domain.analysis.models import AnalysisManifest, RepositoryRef, UserFact
+from AI.domain.shared.errors import AnalysisFailedError
 
 
 @dataclass(frozen=True)
 class AnalysisOutcome:
-    report: AnalysisReport
+    report: AnalysisManifest
     blockers: tuple[Blocker, ...]
 
     @property
@@ -22,8 +22,22 @@ class AnalyzeRepository:
     def __init__(self, analyzer: RepositoryAnalyzer) -> None:
         self._analyzer = analyzer
 
-    async def execute(self, repo: RepositoryRef) -> AnalysisOutcome:
-        report = await self._analyzer.analyze(repo)
+    async def execute(
+        self,
+        repo: RepositoryRef,
+        *,
+        validation_feedback: tuple[str, ...] = (),
+        user_facts: tuple[UserFact, ...] = (),
+    ) -> AnalysisOutcome:
+        try:
+            report = await self._analyzer.analyze(
+                repo,
+                validation_feedback=validation_feedback,
+                user_facts=user_facts,
+            )
+        except TypeError:
+            # Backward compatibility for simple analyzers/fakes that only accept `repo`
+            report = await self._analyzer.analyze(repo)
 
         # Guard against an agent returning a report for a different repo or commit.
         if report.repo != repo:
