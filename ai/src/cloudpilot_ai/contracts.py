@@ -176,7 +176,9 @@ class RepositoryRef(Strict):
 
 
 class AnalysisRequest(Strict):
-    """Orchestrator -> Analysis Agent. Never contains tokens: only opaque refs resolved inside the Communication Module."""
+    """Orchestrator -> Analysis Agent. Never contains tokens: only opaque refs resolved inside the
+    Communication Module.
+    """
 
     job_id: UUID
     correlation_id: str

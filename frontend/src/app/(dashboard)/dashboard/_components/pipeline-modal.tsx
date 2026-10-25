@@ -28,12 +28,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { api } from '@/lib/axios-browser'
+import { apiErrorMessage } from '@/lib/api-error'
 import { AWSAccountSchema } from '@/lib/validations/pipeline'
 import type { Repository } from '@/lib/validations/project'
 import type {
   AnalysisJob,
   ArchitectureVersion,
   Deployment,
+  ServiceItem,
 } from '@/lib/validations/pipeline'
 
 interface PipelineModalProps {
@@ -43,6 +45,8 @@ interface PipelineModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
+
+type PlanComponent = { id: string; type: string; rationale: string }
 
 type PipelineStage = 'analysis' | 'architecture' | 'plan' | 'approval' | 'apply'
 
@@ -73,8 +77,8 @@ export function PipelineModal({
       const res = await api.post(`/repositories/${repository.id}/analyses`, {})
       setAnalysis(res.data)
       setCurrentStage('architecture')
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error?.message ?? 'Failed to run code analysis')
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err, 'Failed to run code analysis'))
     } finally {
       setLoading(false)
     }
@@ -91,8 +95,8 @@ export function PipelineModal({
       })
       setArchitecture(res.data)
       setCurrentStage('plan')
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error?.message ?? 'Failed to generate architecture plan')
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err, 'Failed to generate architecture plan'))
     } finally {
       setLoading(false)
     }
@@ -124,8 +128,8 @@ export function PipelineModal({
 
       setDeployment(deployRes.data)
       setCurrentStage('approval')
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error?.message ?? 'Failed to generate deployment plan')
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err, 'Failed to generate deployment plan'))
     } finally {
       setLoading(false)
     }
@@ -149,8 +153,8 @@ export function PipelineModal({
       } else {
         onOpenChange(false)
       }
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error?.message ?? 'Failed to record approval decision')
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err, 'Failed to record approval decision'))
     } finally {
       setLoading(false)
     }
@@ -164,15 +168,15 @@ export function PipelineModal({
       setErrorMessage(null)
       const res = await api.post(`/deployments/${deployment.id}/apply`)
       setDeployment(res.data)
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error?.message ?? 'Failed to execute AWS deployment')
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err, 'Failed to execute AWS deployment'))
     } finally {
       setLoading(false)
     }
   }
 
-  const services = analysis?.report?.services ?? []
-  const components = architecture?.architecture_data?.components ?? []
+  const services = (analysis?.report?.services ?? []) as ServiceItem[]
+  const components = (architecture?.architecture_data?.components ?? []) as PlanComponent[]
   const cost = architecture?.architecture_data?.cost ?? {}
   const isApproved = deployment?.approval?.status === 'APPROVED'
   const isDeployed = deployment?.status === 'SUCCESS'
@@ -346,7 +350,7 @@ export function PipelineModal({
                   {services.length > 0 && (
                     <div className="space-y-2">
                       <span className="text-xs font-semibold text-foreground">Detected Service Specs</span>
-                      {services.map((s: any, idx: number) => (
+                      {services.map((s, idx) => (
                         <div
                           key={idx}
                           className="p-3.5 rounded-lg border border-border/70 bg-card space-y-2 text-xs"
@@ -442,7 +446,7 @@ export function PipelineModal({
                   <div className="space-y-2">
                     <span className="text-xs font-semibold text-foreground">AWS Target Components</span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {components.map((c: any) => (
+                      {components.map((c) => (
                         <div
                           key={c.id}
                           className="p-3 rounded-lg border border-border/60 bg-muted/15 space-y-1 text-xs"

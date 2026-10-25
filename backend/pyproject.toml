@@ -6,6 +6,8 @@
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
 files = ["app", "tests"]
+# cloudpilot_ai is the sibling AI package (copied next to app/ in the Docker image).
+mypy_path = "../ai/src"
 check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -14,7 +16,7 @@ cache_dir = "/tmp/.mypy_cache"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "../ai/src"]
 addopts = ["--strict-markers", "--strict-config", "-ra"]
 filterwarnings = ["error"]
 

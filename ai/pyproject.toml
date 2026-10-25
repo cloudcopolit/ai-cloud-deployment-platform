@@ -1,0 +1,40 @@
+# CloudPilot AI layer: contracts, orchestrator and agents (ADR-009, ADR-018).
+# Stateless library. It never imports the backend and never touches the database;
+# the backend calls the public API in cloudpilot_ai and implements the ports
+# (RepositoryGateway, EventSink) declared in cloudpilot_ai.ports.
+# Runtime pins must match backend/requirements.txt, which is the lock for the image.
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudpilot-ai"
+version = "0.2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic==2.14.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cloudpilot_ai = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+markers = ["live_llm: calls a real LLM provider (never in CI)"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["cloudpilot_ai"]
+branch = true

@@ -1,19 +1,10 @@
-import sys
-from pathlib import Path
 from uuid import UUID
 
+from cloudpilot_ai.contracts import AnalysisReport
+from cloudpilot_ai.prototype.architect import run_architecture_agent
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-# Ensure root path is in sys.path so ai package is importable
-ROOT_DIR = Path(__file__).resolve().parents[4]
-if not (ROOT_DIR / "ai").is_dir():
-    ROOT_DIR = Path(__file__).resolve().parents[3]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-from ai.agents.architecture.architect import run_architecture_agent
-from app.contracts.ai_contracts import AnalysisReport
 from app.core.errors import BadRequest, NotFound
 from app.core.permissions import check_team_role
 from app.models import (

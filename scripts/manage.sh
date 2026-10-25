@@ -13,14 +13,8 @@ case "$ACTION" in
         docker compose down
         ;;
     test)
-        echo "==> Running backend test suite in Docker..."
-        docker compose run --rm backend-tests
-        echo "==> Running frontend test suite in Docker..."
-        docker compose run --rm frontend pnpm test
-        ;;
-    e2e)
-        echo "==> Running Playwright E2E tests in Docker..."
-        docker compose run --rm frontend pnpm test:e2e
+        echo "==> Running every quality gate (scripts/check.sh)..."
+        sh "$(dirname "$0")/check.sh" all
         ;;
     logs)
         docker compose logs -f
@@ -30,7 +24,7 @@ case "$ACTION" in
         docker compose down --volumes --remove-orphans
         ;;
     *)
-        echo "Usage: $0 {up|down|test|e2e|logs|reset}"
+        echo "Usage: $0 {up|down|test|logs|reset}"
         exit 1
         ;;
 esac

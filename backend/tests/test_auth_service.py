@@ -68,3 +68,30 @@ def test_hidden_email_keeps_the_stored_one(db_session: Session) -> None:
 
 def test_unknown_github_id_returns_none(db_session: Session) -> None:
     assert service.get_user_by_github_id(db_session, "does-not-exist") is None
+
+
+def test_concurrent_first_login_reuses_the_row_instead_of_failing(
+    db_session: Session, monkeypatch
+) -> None:
+    """I7: two simultaneous first logins must not end in an IntegrityError (HTTP 500)."""
+    existing = User(github_user_id="2002", name="Inserted by the other request")
+    db_session.add(existing)
+    db_session.flush()
+
+    real_scalar = db_session.scalar
+    calls = {"n": 0}
+
+    def first_lookup_misses(statement, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:  # the other request had not committed when we looked
+            return None
+        return real_scalar(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "scalar", first_lookup_misses)
+
+    user = service.upsert_github_user(db_session, _profile())
+
+    assert user.id == existing.id
+    assert user.name == "Dana"
+    count = real_scalar(select(func.count()).select_from(User).where(User.github_user_id == "2002"))
+    assert count == 1

@@ -21,7 +21,8 @@ RUN pip install -r requirements.txt
 COPY backend/alembic.ini ./
 COPY backend/alembic ./alembic
 COPY backend/app ./app
-COPY ai ./ai
+# The AI layer is a sibling package (ADR-009); only its source ships in the image.
+COPY ai/src/cloudpilot_ai ./cloudpilot_ai
 COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

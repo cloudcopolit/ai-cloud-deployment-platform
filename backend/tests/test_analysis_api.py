@@ -138,7 +138,8 @@ def test_analysis_permissions(client: TestClient, db_session: Session) -> None:
         json={},
         headers=headers,
     )
-    assert resp.status_code == 403
+    # Foreign tenants must not learn that the object exists (08 §3).
+    assert resp.status_code == 404
 
 
 def test_analysis_not_found_handling(client: TestClient, db_session: Session) -> None:

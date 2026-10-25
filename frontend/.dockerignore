@@ -10,3 +10,6 @@ next-env.d.ts
 .vercel/
 Dockerfile
 .dockerignore
+
+# Raw AWS icon package never enters the image (ADR-020)
+vendor

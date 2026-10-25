@@ -13,9 +13,9 @@
 | 004 | GitHub OAuth for identity; GitHub App for repository access | Accepted |
 | 005 | `VARCHAR`+`CHECK` instead of enums; `ON DELETE RESTRICT`; archive not delete | Accepted |
 | 006 | JSONB for AI documents, normalize only what is queried | Accepted |
-| 007 | Add `BLOCKED`, `TIMED_OUT`, `CANCELLED` job statuses | Proposed |
+| 007 | Add `BLOCKED`, `TIMED_OUT`, `CANCELLED` job statuses | Accepted |
 | 008 | DB-backed job queue (`FOR UPDATE SKIP LOCKED`) | Proposed |
-| 009 | AI layer as an in-process sibling package behind a narrow interface | Proposed |
+| 009 | AI layer as an in-process sibling package behind a narrow interface | Accepted |
 | 010 | Two IAM roles per customer account: read-only and deploy | Proposed |
 | 011 | Generalize `approvals` to deployments | Proposed |
 | 012 | Break the `agent_runs` ↔ `deployments`/`incidents` FK cycle across migrations | Proposed |
@@ -24,7 +24,9 @@
 | 015 | Deterministic-first analysis, LLM only for ambiguity | Proposed |
 | 016 | Polling for job status (SSE later) | Proposed |
 | 017 | Domain exceptions in services + one error envelope | Proposed |
-| 018 | Shared `contracts` package consumed by backend and AI layer | Proposed |
+| 018 | Shared `contracts` package consumed by backend and AI layer | Accepted (variant, see text) |
+| 019 | Foreign tenant → 404, insufficient role → 403 | Accepted |
+| 020 | Official AWS icon package kept out of git, `public/` and images; generated subset only | Accepted |
 
 ---
 
@@ -54,7 +56,7 @@
 **Decision.** `analysis_data`, `architecture_data`, `breakdown` are JSONB validated by Pydantic before write; `services` normalized because it is filtered/joined.
 **Consequences.** Schema evolves without migrations; carry `schema_version`; promote a field to a column when you query it.
 
-## ADR-007 · New job statuses — Proposed
+## ADR-007 · New job statuses — Accepted (2026-10-25: in `repository_analyses` CHECK since migration `9f907e2152cb`)
 **Context.** ERD has `QUEUED/RUNNING/SUCCESS/FAILED`; the brief saves a *blocked* outcome; timeouts are first-class.
 **Decision.** Allow `QUEUED, RUNNING, SUCCESS, BLOCKED, FAILED, TIMED_OUT, CANCELLED` on `repository_analyses` and `agent_runs`.
 **Consequences.** `BLOCKED` is **not** a failure (system worked, repo not deployable yet). Frontend must render it differently. Terminal states list is used by polling (`05` §4).
@@ -64,10 +66,11 @@
 **Alternatives.** Celery/Arq/RQ + Redis (more infra), SQS (AWS lock-in, cost). **Swap path** keeps API and tables unchanged.
 **Consequences.** Polling load on PG is negligible at MVP scale; needs `created_at` + `(status, created_at)` index (P3).
 
-## ADR-009 · AI layer as in-process sibling package — Proposed (Q-1)
+## ADR-009 · AI layer as in-process sibling package — Accepted (2026-10-25, closes Q-1)
 **Decision.** `ai/` package with a public API `run_analysis(AnalysisRequest) -> AgentResult[AnalysisReport]`; the backend worker imports it. Same contracts allow an HTTP service later.
 **Alternatives.** Separate microservice now (network, auth, deploy overhead for no benefit).
 **Consequences.** One deployable for the demo; strict import direction (`ai` never imports `backend`); the backend provides the persistence hook, the AI layer stays stateless (`06` §7).
+**As built.** Package `cloudpilot_ai` in `ai/src/` with `ai/pyproject.toml` (one AI CI project). The backend image copies `ai/src/cloudpilot_ai` next to `app/`; backend pytest/mypy put `../ai/src` on the path. The former `sys.path` manipulation in backend services was removed.
 
 ## ADR-010 · Two IAM roles — Proposed
 **Decision.** `cloudpilot-readonly` for discovery/planning, `cloudpilot-deploy` for apply; separate ARNs on `aws_accounts`; deploy role assumed only by the deployment worker after an approval.
@@ -103,9 +106,20 @@
 **Decision.** Services raise `NotFound/Forbidden/Conflict/QuotaExceeded/UpstreamError`; one handler maps to the envelope (`05` §1) with `correlation_id`.
 **Consequences.** Services are HTTP-free and testable; the AI layer's `ErrorInfo.code` maps 1:1.
 
-## ADR-018 · Shared contracts package — Proposed (Q-1)
+## ADR-018 · Shared contracts package — Accepted, variant (2026-10-25)
 **Decision.** `contracts/ai_contracts.py` becomes an installable package imported by backend and AI layer; JSON Schema exported for the frontend.
 **Consequences.** One definition; version it (`schema_version`) and run contract tests in both CI pipelines.
+**Variant adopted.** Instead of a third package, the contracts live in `cloudpilot_ai.contracts` (owned by the AI layer, imported by the backend). That keeps the import direction of ADR-009 with one less package to install. `project_context/contracts/ai_contracts.py` stays as the reviewed v1.0 draft; the code module is authoritative and changes there must update the draft and `ai-contracts.md`.
+
+## ADR-019 · Foreign tenant → 404, insufficient role → 403 — Accepted (2026-10-25)
+**Context.** `08` §3 requires 404 for other teams' objects (no existence leak); the code returned 403 from `check_team_role` for non-members.
+**Decision.** `check_team_role` raises `NotFound` when the caller is not a member of the owning team and `Forbidden` only when the member's role is too low.
+**Consequences.** IDOR probes cannot distinguish "exists in another team" from "does not exist". Tests for outsiders assert 404.
+
+## ADR-020 · AWS Architecture Icons handling — Accepted (2026-10-25)
+**Context.** The official package (release `07312026`, ≈24 MB, mixed-case folder names) was dropped into `frontend/public/AWS/`, which ships whole in the frontend image and is served as-is; Linux paths are case-sensitive.
+**Decision.** The package moves to `frontend/vendor/aws-icons/` (git-ignored, docker-ignored). `scripts/build-aws-icon-manifest.mjs` copies only the icons the diagram uses, **unmodified**, into `frontend/public/aws-icons/` with lowercase file names and writes a typed manifest (`src/lib/aws-icons/manifest.ts`). The original package is never committed unless the owner approves.
+**Consequences.** Small, reviewable, case-safe asset set; the AWS icon terms must be accepted by the owner (HANDOFF.md).
 
 ---
 

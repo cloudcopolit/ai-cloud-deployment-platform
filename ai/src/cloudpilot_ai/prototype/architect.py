@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.contracts.ai_contracts import (
+from cloudpilot_ai.contracts import (
     AnalysisReport,
     ArchitecturePlan,
     Assumption,
@@ -31,14 +31,20 @@ def run_architecture_agent(
         Component(
             id="vpc",
             type=ComponentType.VPC,
-            rationale="Dedicated Amazon VPC with public and private subnets across 2 Availability Zones for network isolation.",
+            rationale=(
+                "Dedicated Amazon VPC with public and private subnets across 2 Availability Zones "
+                "for network isolation."
+            ),
             config={"cidr": "10.0.0.0/16", "nat_gateways": 1},
         ),
         Component(
             id="alb",
             type=ComponentType.ALB,
             depends_on=["vpc"],
-            rationale="Public Application Load Balancer terminating incoming HTTP/HTTPS and routing to backend container targets.",
+            rationale=(
+                "Public Application Load Balancer terminating incoming HTTP/HTTPS and routing to "
+                "backend container targets."
+            ),
             config={"scheme": "internet-facing", "health_check_path": "/health/db"},
         ),
         Component(
@@ -46,21 +52,30 @@ def run_architecture_agent(
             type=ComponentType.ECS_SERVICE,
             depends_on=["alb", "vpc"],
             serves_service=service_name,
-            rationale="Amazon ECS with AWS Fargate launch type running containerized application in private subnets.",
+            rationale=(
+                "Amazon ECS with AWS Fargate launch type running containerized application in "
+                "private subnets."
+            ),
             config={"cpu": 512, "memory": 1024, "desired_count": 1},
         ),
         Component(
             id="secrets-manager",
             type=ComponentType.SECRETS_MANAGER,
             depends_on=["vpc"],
-            rationale="AWS Secrets Manager providing encrypted storage and runtime injection of database credentials and JWT keys.",
+            rationale=(
+                "AWS Secrets Manager providing encrypted storage and runtime injection of database"
+                " credentials and JWT keys."
+            ),
             config={"kms_key": "aws/secretsmanager"},
         ),
         Component(
             id="cloudwatch",
             type=ComponentType.CLOUDWATCH,
             depends_on=["ecs-cluster"],
-            rationale="Amazon CloudWatch log groups for centralized container logging, stdout capture, and error alarm metrics.",
+            rationale=(
+                "Amazon CloudWatch log groups for centralized container logging, stdout capture, "
+                "and error alarm metrics."
+            ),
             config={"retention_days": 30},
         ),
     ]
@@ -94,8 +109,16 @@ def run_architecture_agent(
                 id="rds-postgres",
                 type=ComponentType.RDS,
                 depends_on=["vpc", "secrets-manager"],
-                rationale="Amazon RDS for PostgreSQL 16 in private database subnets with automated daily snapshots and storage encryption.",
-                config={"engine": "postgres", "version": "16.4", "instance_class": "db.t4g.micro", "storage_gb": 20},
+                rationale=(
+                    "Amazon RDS for PostgreSQL 16 in private database subnets with automated daily"
+                    " snapshots and storage encryption."
+                ),
+                config={
+                    "engine": "postgres",
+                    "version": "16.4",
+                    "instance_class": "db.t4g.micro",
+                    "storage_gb": 20,
+                },
             )
         )
         cost_lines.append(
@@ -115,22 +138,37 @@ def run_architecture_agent(
         components=components,
         assumptions=[
             Assumption(
-                statement="Container memory utilization remains under 800 MB during baseline operating conditions.",
+                statement=(
+                    "Container memory utilization remains under 800 MB during baseline operating "
+                    "conditions."
+                ),
                 impact=Impact.MEDIUM,
                 confirmed_by_user=False,
             ),
             Assumption(
-                statement="Database connection pooling is handled efficiently within application or container limits.",
+                statement=(
+                    "Database connection pooling is handled efficiently within application or "
+                    "container limits."
+                ),
                 impact=Impact.LOW,
                 confirmed_by_user=False,
             ),
         ],
         security=SecurityDesign(
-            network_isolation="ECS tasks and RDS database run strictly in private subnets with no public IPs; only ALB is public.",
+            network_isolation=(
+                "ECS tasks and RDS database run strictly in private subnets with no public IPs; "
+                "only ALB is public."
+            ),
             encryption_at_rest=True,
             encryption_in_transit=True,
-            secrets_strategy="Injected as secure environment variables at task initialization from AWS Secrets Manager.",
-            least_privilege_notes="Task Execution IAM Role scoped strictly to ecr:GetAuthorizationToken, ecr:BatchGetImage, and logs:PutLogEvents.",
+            secrets_strategy=(
+                "Injected as secure environment variables at task initialization from AWS Secrets "
+                "Manager."
+            ),
+            least_privilege_notes=(
+                "Task Execution IAM Role scoped strictly to ecr:GetAuthorizationToken, "
+                "ecr:BatchGetImage, and logs:PutLogEvents."
+            ),
             public_endpoints=["https://app.cloudpilot.dev"],
         ),
         cost=CostEstimate(
@@ -144,8 +182,13 @@ def run_architecture_agent(
             Finding(
                 code="COLD_START_LATENCY",
                 severity=Severity.WARNING,
-                message="Single Fargate task configuration may experience 30-45s recovery latency if container crashes.",
-                suggested_action="Configure minimum 2 tasks behind ALB once production traffic commences.",
+                message=(
+                    "Single Fargate task configuration may experience 30-45s recovery latency if "
+                    "container crashes."
+                ),
+                suggested_action=(
+                    "Configure minimum 2 tasks behind ALB once production traffic commences."
+                ),
             )
         ],
         requires_human_approval=True,

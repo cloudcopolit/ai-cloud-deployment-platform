@@ -1,35 +1,39 @@
-.PHONY: up down test test-backend test-frontend e2e logs reset clean help
+# CloudPilot developer commands. The gates live in scripts/check.sh (POSIX sh, so they also
+# run where `make` is not installed, e.g. Git Bash on Windows).
+
+COMPOSE := docker compose --env-file .env
+
+.PHONY: help up down logs reset check check-backend check-ai check-frontend
 
 help:
-	@echo "CloudPilot Stack Management"
-	@echo "  make up          - Build and start full stack (db, localstack, backend, frontend)"
-	@echo "  make down        - Stop all containers"
-	@echo "  make test        - Run backend and frontend test suites in containers"
-	@echo "  make test-backend- Run backend test suite with coverage"
-	@echo "  make test-frontend- Run frontend vitest suite"
-	@echo "  make e2e         - Run Playwright end-to-end tests"
-	@echo "  make logs        - Tail container logs"
-	@echo "  make reset       - Tear down containers and delete all data volumes"
+	@echo "make up              build and start the stack"
+	@echo "make down            stop the stack (data kept)"
+	@echo "make reset           stop the stack and delete its volumes"
+	@echo "make check           every gate (scripts/check.sh)"
+	@echo "make check-backend   ruff, mypy, pytest --cov incl. migration tests"
+	@echo "make check-ai        ruff, mypy, pytest for ai/"
+	@echo "make check-frontend  lint, typecheck, vitest, production build"
 
 up:
-	docker compose up --build -d
+	$(COMPOSE) up --build -d
 
 down:
-	docker compose down
-
-test: test-backend test-frontend
-
-test-backend:
-	docker compose run --rm backend-tests
-
-test-frontend:
-	docker compose run --rm frontend pnpm test
-
-e2e:
-	docker compose run --rm frontend pnpm test:e2e
+	$(COMPOSE) down
 
 logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 reset:
-	docker compose down --volumes --remove-orphans
+	$(COMPOSE) down --volumes --remove-orphans
+
+check:
+	sh scripts/check.sh all
+
+check-backend:
+	sh scripts/check.sh backend
+
+check-ai:
+	sh scripts/check.sh ai
+
+check-frontend:
+	sh scripts/check.sh frontend

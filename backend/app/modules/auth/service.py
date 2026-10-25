@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.integrations.github import GitHubProfile
@@ -12,9 +13,18 @@ def upsert_github_user(db: Session, profile: GitHubProfile) -> User:
     user = db.scalar(select(User).where(User.github_user_id == profile.github_id))
     is_new = user is None
     if user is None:
-        user = User(github_user_id=profile.github_id)
-        db.add(user)
-        db.flush()
+        candidate = User(github_user_id=profile.github_id)
+        try:
+            # Savepoint: a concurrent first login may insert the same github_user_id (I7).
+            with db.begin_nested():
+                db.add(candidate)
+                db.flush()
+            user = candidate
+        except IntegrityError:
+            user = db.scalar(select(User).where(User.github_user_id == profile.github_id))
+            if user is None:  # pragma: no cover - the conflicting row must exist
+                raise
+            is_new = False
 
     user.name = profile.name
     user.avatar_url = profile.avatar_url

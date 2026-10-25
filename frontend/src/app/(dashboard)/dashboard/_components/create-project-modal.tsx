@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
 import { api } from '@/lib/axios-browser'
+import { apiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -59,12 +60,8 @@ export function CreateProjectModal({
       setDescription('')
       setOpen(false)
       onProjectCreated?.(res.data)
-    } catch (err: any) {
-      const msg =
-        err.response?.data?.error?.message ??
-        err.response?.data?.detail ??
-        'Failed to create project.'
-      setError(msg)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to create project.'))
     } finally {
       setLoading(false)
     }

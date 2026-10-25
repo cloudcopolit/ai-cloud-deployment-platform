@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { GitBranch, Loader2, Sparkles, Check, Globe } from 'lucide-react'
 import { api } from '@/lib/axios-browser'
+import { apiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -110,12 +111,8 @@ export function ConnectRepoModal({
       const res = await api.post(`/projects/${projectId}/repositories`, repoData)
       setOpen(false)
       onRepoConnected?.(res.data)
-    } catch (err: any) {
-      const msg =
-        err.response?.data?.error?.message ??
-        err.response?.data?.detail ??
-        'Failed to connect repository.'
-      setError(msg)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to connect repository.'))
     } finally {
       setLoading(false)
     }

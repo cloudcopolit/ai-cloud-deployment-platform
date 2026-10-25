@@ -28,11 +28,10 @@ select = [
 "**/alembic/versions/**" = ["E501"]
 # CI helper scripts run `git` from PATH with fixed arguments by design.
 ".github/scripts/**" = ["S603", "S607"]
-# AI contracts contains self-check with asserts and type specifications
-"**/ai_contracts.py" = ["S101", "PT017", "UP046", "E501"]
-
-# Service files insert root to sys.path to resolve cross-package imports
-"**/modules/*/service.py" = ["E402"]
+# The AI contracts module keeps its documented `python contracts.py` self-check (asserts),
+# and Generic[T] for pydantic generic models.
+"ai/src/cloudpilot_ai/contracts.py" = ["S101", "PT017", "UP046"]
+"project_context/contracts/ai_contracts.py" = ["S101", "PT017", "UP046", "E501"]
 
 
 [lint.isort]

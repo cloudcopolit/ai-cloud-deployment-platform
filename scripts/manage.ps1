@@ -1,6 +1,6 @@
 param (
     [Parameter(Position = 0)]
-    [ValidateSet("up", "down", "test", "e2e", "logs", "reset", "help")]
+    [ValidateSet("up", "down", "test", "logs", "reset", "help")]
     [string]$Action = "help"
 )
 
@@ -14,14 +14,9 @@ switch ($Action) {
         docker compose down
     }
     "test" {
-        Write-Host "==> Running backend test suite in Docker..." -ForegroundColor Cyan
-        docker compose run --rm backend-tests
-        Write-Host "==> Running frontend test suite in Docker..." -ForegroundColor Cyan
-        docker compose run --rm frontend pnpm test
-    }
-    "e2e" {
-        Write-Host "==> Running Playwright E2E tests..." -ForegroundColor Cyan
-        docker compose run --rm frontend pnpm test:e2e
+        # The gates are a POSIX script (Git Bash provides `sh` on Windows).
+        Write-Host "==> Running every quality gate (scripts/check.sh)..." -ForegroundColor Cyan
+        sh "$PSScriptRoot/check.sh" all
     }
     "logs" {
         docker compose logs -f
@@ -31,6 +26,6 @@ switch ($Action) {
         docker compose down --volumes --remove-orphans
     }
     default {
-        Write-Host "Usage: .\scripts\manage.ps1 [up|down|test|e2e|logs|reset]" -ForegroundColor Green
+        Write-Host "Usage: .\scripts\manage.ps1 [up|down|test|logs|reset]" -ForegroundColor Green
     }
 }

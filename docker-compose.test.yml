@@ -8,12 +8,21 @@
 name: cloudpilot-test
 
 services:
+  # Own container names so the test project can run next to the development stack.
   db:
+    container_name: cloudpilot-test-db
+    ports: !reset []
     environment:
       POSTGRES_DB: cloudpilot_test
     volumes: !reset []
     tmpfs:
       - /var/lib/postgresql/data
+
+  localstack:
+    container_name: cloudpilot-test-localstack
+    ports: !reset []
+    volumes: !reset
+      - /var/run/docker.sock:/var/run/docker.sock
 
   # The application services are not needed to run the test suites.
   migrate:
@@ -23,10 +32,9 @@ services:
   frontend:
     profiles: [stack]
 
+  # Build contexts come from docker-compose.yml (repository root + backend/Dockerfile).
   backend-tests:
-    build:
-      context: ./backend
-      target: test
+    container_name: cloudpilot-test-backend-tests
     environment:
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/cloudpilot_test
     depends_on:
@@ -34,6 +42,4 @@ services:
         condition: service_healthy
 
   frontend-tests:
-    build:
-      context: ./frontend
-      target: test
+    container_name: cloudpilot-test-frontend-tests

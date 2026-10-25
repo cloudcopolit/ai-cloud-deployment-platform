@@ -130,9 +130,15 @@ services:
       <<: *backend-environment
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudpilot}:${POSTGRES_PASSWORD:-cloudpilot}@db:5432/${POSTGRES_DB:-cloudpilot}_test
       RUFF_CACHE_DIR: /tmp/.ruff_cache
+    # Live sources are mounted so the gates run against the working tree without a rebuild;
+    # rebuild only when requirements change.
     volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
       - ./backend/tests:/app/tests:ro
       - ./backend/pyproject.toml:/app/pyproject.toml:ro
+      - ./ai/src/cloudpilot_ai:/app/cloudpilot_ai:ro
+      - ./ruff.toml:/app/ruff.toml:ro
     depends_on:
       db:
         condition: service_healthy

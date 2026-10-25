@@ -1,8 +1,7 @@
 import hashlib
 import time
-from uuid import UUID
 
-from app.contracts.ai_contracts import (
+from cloudpilot_ai.contracts import (
     AnalysisMeta,
     AnalysisReport,
     ConfigFile,
@@ -73,7 +72,10 @@ def run_code_analyzer(
         # Frontend / Fullstack Next.js stack
         report = AnalysisReport(
             repository=repo_ref,
-            summary="Next.js 16 fullstack application with App Router, SSR, and containerized deployment.",
+            summary=(
+                "Next.js 16 fullstack application with App Router, SSR, and containerized "
+                "deployment."
+            ),
             languages=[
                 Language(name="TypeScript", version="5.6", share_percent=88.5, confidence=0.98),
                 Language(name="CSS", share_percent=11.5, confidence=0.95),
@@ -97,8 +99,18 @@ def run_code_analyzer(
                 )
             ],
             dependencies=[
-                Dependency(ecosystem="npm", name="next", version_spec="^16.4.0", manifest_path="package.json"),
-                Dependency(ecosystem="npm", name="react", version_spec="^19.0.0", manifest_path="package.json"),
+                Dependency(
+                    ecosystem="npm",
+                    name="next",
+                    version_spec="^16.4.0",
+                    manifest_path="package.json",
+                ),
+                Dependency(
+                    ecosystem="npm",
+                    name="react",
+                    version_spec="^19.0.0",
+                    manifest_path="package.json",
+                ),
             ],
             config_files=[
                 ConfigFile(path="Dockerfile", kind="dockerfile", confidence=1.0),
@@ -123,14 +135,29 @@ def run_code_analyzer(
         # Python / FastAPI e-commerce or microservice stack (default for reference apps)
         report = AnalysisReport(
             repository=repo_ref,
-            summary="Production-grade FastAPI REST application with PostgreSQL relational data store and Dockerfile containerization.",
+            summary=(
+                "Production-grade FastAPI REST application with PostgreSQL relational data store "
+                "and Dockerfile containerization."
+            ),
             languages=[
                 Language(name="Python", version="3.12", share_percent=94.0, confidence=0.99),
                 Language(name="Dockerfile", share_percent=6.0, confidence=1.0),
             ],
             frameworks=[
-                Framework(name="FastAPI", version="0.115.0", kind="backend", confidence=0.99, evidence=[ev_main]),
-                Framework(name="SQLAlchemy", version="2.0.36", kind="backend", confidence=0.98, evidence=[ev_manifest]),
+                Framework(
+                    name="FastAPI",
+                    version="0.115.0",
+                    kind="backend",
+                    confidence=0.99,
+                    evidence=[ev_main],
+                ),
+                Framework(
+                    name="SQLAlchemy",
+                    version="2.0.36",
+                    kind="backend",
+                    confidence=0.98,
+                    evidence=[ev_manifest],
+                ),
             ],
             services=[
                 DetectedService(
@@ -147,19 +174,44 @@ def run_code_analyzer(
                 )
             ],
             dependencies=[
-                Dependency(ecosystem="pypi", name="fastapi", version_spec=">=0.115.0", manifest_path="requirements.txt"),
-                Dependency(ecosystem="pypi", name="sqlalchemy", version_spec=">=2.0.0", manifest_path="requirements.txt"),
-                Dependency(ecosystem="pypi", name="pydantic", version_spec=">=2.10.0", manifest_path="requirements.txt"),
+                Dependency(
+                    ecosystem="pypi",
+                    name="fastapi",
+                    version_spec=">=0.115.0",
+                    manifest_path="requirements.txt",
+                ),
+                Dependency(
+                    ecosystem="pypi",
+                    name="sqlalchemy",
+                    version_spec=">=2.0.0",
+                    manifest_path="requirements.txt",
+                ),
+                Dependency(
+                    ecosystem="pypi",
+                    name="pydantic",
+                    version_spec=">=2.10.0",
+                    manifest_path="requirements.txt",
+                ),
             ],
             config_files=[
-                ConfigFile(path="Dockerfile", kind="dockerfile", confidence=1.0, evidence=[ev_docker]),
+                ConfigFile(
+                    path="Dockerfile", kind="dockerfile", confidence=1.0, evidence=[ev_docker]
+                ),
                 ConfigFile(path="docker-compose.yml", kind="compose", confidence=0.95),
             ],
             entry_points=[
-                EntryPoint(path="app/main.py", command="uvicorn app.main:app --host 0.0.0.0 --port 8000", confidence=0.95),
+                EntryPoint(
+                    path="app/main.py",
+                    command="uvicorn app.main:app --host 0.0.0.0 --port 8000",
+                    confidence=0.95,
+                ),
             ],
             data_stores=[
-                DataStore(engine="postgresql", inferred_from="SQLAlchemy PostgreSQL dialect and DATABASE_URL", confidence=0.96),
+                DataStore(
+                    engine="postgresql",
+                    inferred_from="SQLAlchemy PostgreSQL dialect and DATABASE_URL",
+                    confidence=0.96,
+                ),
             ],
             env_vars=[
                 EnvVar(name="DATABASE_URL", required=True),
@@ -170,8 +222,13 @@ def run_code_analyzer(
                 Finding(
                     code="MULTI_AZ_RESTORATION",
                     severity=Severity.WARNING,
-                    message="Production database requires Multi-AZ configuration to ensure high availability during failovers.",
-                    suggested_action="Provision RDS PostgreSQL with Multi-AZ replica in secondary subnet.",
+                    message=(
+                        "Production database requires Multi-AZ configuration to ensure high "
+                        "availability during failovers."
+                    ),
+                    suggested_action=(
+                        "Provision RDS PostgreSQL with Multi-AZ replica in secondary subnet."
+                    ),
                 )
             ],
             overall_confidence=0.96,
