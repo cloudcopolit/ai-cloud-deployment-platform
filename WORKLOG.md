@@ -13,10 +13,14 @@
   real deterministic analysis (`d9bf873`, `5be4d6a`) + live activity UI + E2E, **S3** LLM gateway
   (MOCKED-ONLY until keys).
 - Session 3 (2026-10-26): product UI and brand identity (landing page, brand sign-in, Agents page,
-  agent avatars with popovers, Architect hand-off, AWS-icon architecture diagram). The diagram shows
-  the **prototype** architect's output, labelled SIMULATED until S4.
+  agent avatars with popovers, Architect hand-off, AWS-icon architecture diagram), black theme,
+  live agent trace, architect drawing board (`eb94856`, `071c557`). The diagram shows the
+  **prototype** architect's output, labelled SIMULATED until S4. Eval harness (`07ad1db`).
+- **Big picture for newcomers: `PLANNING.md`** (state, architecture, API, AI layer, frontend,
+  "does it work on any repo / any key", gates, roadmap, owner actions, risks, rules). Keep it in
+  step with this section.
 - Next: **S4 architecture** (price table from the AWS Price List via `scripts/refresh_aws_prices.py`,
-  pattern catalog, versions, AWS-icon diagram), then S5 AWS/deploy, S6 frontend polish, S7.
+  pattern catalog, versions, live architect steps on the board), then S5 AWS/deploy, S6, S7.
 - Blocked on the owner (see §5): LLM API keys, AWS sandbox account id, GitHub App installation /
   `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`, acceptance of the AWS Architecture Icons terms.
 
