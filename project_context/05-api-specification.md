@@ -52,7 +52,7 @@
 | GET | `/auth/github/callback` | – | – | GitHub OAuth callback → auto-creates user, personal team, FREE plan |
 | GET | `/auth/me` | ✔ | – | Current authenticated user profile |
 | POST | `/auth/logout` | – | – | Clear auth cookie (204) |
-| POST | `/auth/dev-login` | – | – | Dev only: issue token for seeded/test user |
+| POST | `/auth/dev-login` | – | – | Dev only (404 otherwise): token in the body **and** the same HttpOnly `access_token` cookie as GitHub sign-in |
 | GET | `/teams` | ✔ | M | List user's authorized teams |
 | POST | `/teams` | ✔ | – | Create team |
 | GET | `/teams/{team_id}` | ✔ | M | Get team details |
@@ -64,13 +64,15 @@
 | POST | `/projects/{project_id}/archive` | ✔ | A | Archive project (never delete) |
 | GET | `/teams/{team_id}/projects` | ✔ | M | List team projects |
 | POST | `/teams/{team_id}/projects` | ✔ | A | Create project (enforces FREE plan 3-project quota) |
-| GET | `/repositories/available` | ✔ | – | Catalog of verified reference applications |
-| GET | `/projects/{project_id}/repositories` | ✔ | M | List repositories connected to project |
-| POST | `/projects/{project_id}/repositories` | ✔ | A | Connect GitHub repository to project |
-| GET | `/repositories/{repo_id}` | ✔ | M | Get repository details |
-| GET | `/repositories/{repo_id}/branches` | ✔ | M | List branches |
-| PUT | `/repositories/{repo_id}/deployment-branch` | ✔ | A | Set single deployment branch |
-| GET | `/repositories/{repo_id}/commits` | ✔ | M | List commits on deployment branch |
+| GET | `/github/access` | ✔ | – | Which GitHub access this instance has (App configured/installed, token, anonymous) and the API quota left. No secrets |
+| GET | `/projects/{project_id}/repositories` | ✔ | M | List repositories connected to the project |
+| POST | `/projects/{project_id}/repositories` | ✔ | A | `{url}` only. Owner, name, numeric id, default branch, visibility are resolved from GitHub; branches and the default branch's latest commits are stored. 201 · 400 bad URL · 404 `REPOSITORY_NOT_FOUND` (missing or private without the App) · 409 duplicate / archived project · 429 `GITHUB_RATE_LIMITED` (`details.reset_at`) · 502 GitHub down |
+| GET | `/repositories/{repo_id}` | ✔ | M | Repository details incl. `access_mode` (`GITHUB_APP`/`TOKEN`/`ANONYMOUS`), `is_private`, `last_synced_at` |
+| POST | `/repositories/{repo_id}/sync` | ✔ | M | Re-read metadata, branches and the deployment branch's latest commits from GitHub. 409 if the name now belongs to a different repository |
+| GET | `/repositories/{repo_id}/branches` | ✔ | M | Branches mirrored from GitHub (deployment branch first) |
+| PUT | `/repositories/{repo_id}/deployment-branch` | ✔ | A | `{branch_name}` of a known branch; exactly one per repository |
+| GET | `/repositories/{repo_id}/commits` | ✔ | M | `?branch=&refresh=&limit=&offset=`. Stored commits of a branch; `refresh=true` reads the latest page from GitHub first (real SHAs) |
+| POST | `/webhooks/github` | HMAC | – | `X-Hub-Signature-256` verified (constant time); 404 while `GITHUB_WEBHOOK_SECRET` is unset; push to a deployment branch records commits idempotently; never triggers a deployment (Q-11). Exempt from the Origin check |
 | POST | `/repositories/{repo_id}/analyses` | ⚠️ | M | Returns 202 but currently runs a canned analyzer synchronously; no GitHub content retrieval or persisted worker |
 | GET | `/analyses/{analysis_id}` | ✔ | M | Get analysis report, detected services, and confidence |
 | GET | `/repositories/{repo_id}/analyses` | ✔ | M | List repository analysis history |

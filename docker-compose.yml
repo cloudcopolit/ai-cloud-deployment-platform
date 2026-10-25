@@ -16,6 +16,15 @@ x-backend-environment: &backend-environment
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dev-github-client-id}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dev-github-client-secret}
   GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:8000/auth/github/callback}
+  # Repository access (ADR-021). All optional; without them only public repos, anonymously.
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+  GITHUB_APP_PRIVATE_KEY_PATH: /run/cloudpilot-secrets/github-app.pem
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+  # LangGraph ships LangSmith tracing; it stays off so no run data leaves the platform.
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://localstack:4566}
   AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
@@ -82,6 +91,9 @@ services:
       target: runtime
     container_name: cloudpilot-backend
     environment: *backend-environment
+    volumes:
+      # Git-ignored secrets folder (GitHub App key); a missing file just disables App access.
+      - ./secrets:/run/cloudpilot-secrets:ro
     depends_on:
       db:
         condition: service_healthy
@@ -107,6 +119,8 @@ services:
     environment:
       API_INTERNAL_URL: http://backend:8000
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+      # Shows the seeded-user sign-in. The backend refuses dev-login unless ENVIRONMENT=development.
+      DEV_LOGIN_ENABLED: ${DEV_LOGIN_ENABLED:-true}
     depends_on:
       backend:
         condition: service_healthy

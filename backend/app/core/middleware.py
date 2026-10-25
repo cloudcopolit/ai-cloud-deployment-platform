@@ -11,6 +11,8 @@ from app.core.config import settings
 from app.core.security import decode_access_token
 
 CSRF_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# Server-to-server endpoints authenticated by a signature instead of a cookie.
+ORIGIN_EXEMPT_PATHS = {"/webhooks/github"}
 
 
 def _origin_from_url(candidate: str | None) -> str | None:
@@ -56,7 +58,7 @@ def _apply_security_headers(response):
 
 class OriginSecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.method in CSRF_METHODS:
+        if request.method in CSRF_METHODS and request.url.path not in ORIGIN_EXEMPT_PATHS:
             if _valid_bearer_token(request.headers.get("Authorization")):
                 response = await call_next(request)
                 return _apply_security_headers(response)

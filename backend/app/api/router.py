@@ -7,6 +7,7 @@ from app.modules.deployments.router import router as deployments_router
 from app.modules.projects.router import router as projects_router
 from app.modules.repositories.router import router as repositories_router
 from app.modules.teams.router import router as teams_router
+from app.modules.webhooks.router import router as webhooks_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -16,3 +17,4 @@ api_router.include_router(repositories_router)
 api_router.include_router(analysis_router)
 api_router.include_router(architectures_router)
 api_router.include_router(deployments_router)
+api_router.include_router(webhooks_router)

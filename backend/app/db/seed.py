@@ -5,17 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
-from app.models import (
-    Branch,
-    Commit,
-    Plan,
-    Project,
-    Repository,
-    Subscription,
-    Team,
-    TeamMember,
-    User,
-)
+from app.models import Plan, Project, Subscription, Team, TeamMember, User
 
 
 def get_or_create(db: Session, model, lookup: dict, defaults: dict | None = None):
@@ -88,50 +78,15 @@ def seed_dev_data(db: Session, plans: dict[str, Plan]) -> None:
         },
     )
 
-    project = get_or_create(
+    get_or_create(
         db,
         Project,
         {"team_id": team.id, "name": "Demo Shop"},
-        {"description": "Sample e-commerce app"},
+        {"description": "Seeded for local development. Connect a real GitHub repository."},
     )
 
-    repo = get_or_create(
-        db,
-        Repository,
-        {"project_id": project.id, "github_repository_id": "900001"},
-        {
-            "owner": "acme",
-            "name": "demo-shop",
-            "url": "https://github.com/acme/demo-shop",
-            "default_branch": "main",
-        },
-    )
-
-    main = get_or_create(
-        db,
-        Branch,
-        {"repository_id": repo.id, "name": "main"},
-        {"is_default": True, "is_deployment_branch": True},
-    )
-
-    commits = [
-        ("a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "Initial commit", alice),
-        ("b2c3d4e5f60718293a4b5c6d7e8f901234567890", "Add backend API", bob),
-        ("c3d4e5f60718293a4b5c6d7e8f90123456789012", "Add Dockerfile", bob),
-    ]
-    for i, (sha, message, author) in enumerate(commits):
-        get_or_create(
-            db,
-            Commit,
-            {"repository_id": repo.id, "sha": sha},
-            {
-                "branch_id": main.id,
-                "message": message,
-                "author_name": author.name,
-                "author_email": author.email,
-                "committed_at": now - timedelta(days=3 - i),
-            },
-        )
+    # No repositories or commits are seeded: every repository, branch and SHA in CloudPilot
+    # comes from GitHub (connect one with POST /projects/{id}/repositories).
 
 
 def main() -> None:

@@ -1,8 +1,7 @@
 -r requirements.txt
 
 # Development and CI tooling. Runtime dependencies stay in requirements.txt.
-# httpx2 is the HTTP client Starlette's TestClient requires (httpx is deprecated there).
-httpx2==2.13.1
+# httpx2 (Starlette's TestClient client) is pinned in requirements.txt (langgraph-sdk needs it).
 mypy==2.4.0
 pip-audit==2.10.1
 pytest==9.1.1

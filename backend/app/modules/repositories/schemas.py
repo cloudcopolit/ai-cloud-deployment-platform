@@ -1,15 +1,17 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class RepositoryConnect(BaseModel):
-    url: str = Field(..., max_length=500)
-    github_repository_id: str | None = Field(default=None, max_length=50)
-    owner: str | None = Field(default=None, max_length=255)
-    name: str | None = Field(default=None, max_length=255)
-    default_branch: str = Field("main", max_length=255)
+    """Connect by URL. Owner, name, id and default branch are resolved from GitHub, never
+    taken from the client."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str = Field(..., min_length=3, max_length=500, examples=["https://github.com/owner/repo"])
 
 
 class RepositoryRead(BaseModel):
@@ -23,8 +25,13 @@ class RepositoryRead(BaseModel):
     url: str
     default_branch: str
     deployment_branch: str | None = None
+    is_private: bool
+    access_mode: Literal["GITHUB_APP", "TOKEN", "ANONYMOUS"]
+    branch_count: int = 0
+    branches_truncated: bool = False
     connected_at: datetime
     updated_at: datetime
+    last_synced_at: datetime | None = None
 
 
 class BranchRead(BaseModel):
@@ -38,7 +45,9 @@ class BranchRead(BaseModel):
 
 
 class DeploymentBranchUpdate(BaseModel):
-    branch_name: str = Field(..., max_length=255)
+    model_config = ConfigDict(extra="forbid")
+
+    branch_name: str = Field(..., min_length=1, max_length=255)
 
 
 class CommitRead(BaseModel):
@@ -50,16 +59,17 @@ class CommitRead(BaseModel):
     sha: str
     message: str
     author_name: str | None = None
-    author_email: str | None = None
     committed_at: datetime
 
 
-class AvailableRepository(BaseModel):
-    id: str
-    name: str
-    full_name: str
-    description: str | None = None
-    default_branch: str = "main"
-    url: str
-    language: str | None = None
-    is_template: bool = False
+class GitHubAccessRead(BaseModel):
+    """What this CloudPilot deployment can reach on GitHub. Contains no secrets."""
+
+    app_configured: bool
+    app_installations: int | None
+    app_install_url: str | None
+    token_configured: bool
+    rate_limit_remaining: int | None
+    rate_limit_limit: int | None
+    mode_for_public_repos: Literal["TOKEN", "ANONYMOUS", "GITHUB_APP"]
+    webhook_enabled: bool

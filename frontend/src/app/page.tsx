@@ -1,5 +1,6 @@
+import { redirect } from 'next/navigation'
+
+/* The proxy sends signed-out visitors of /dashboard to /login. */
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black"></div>
-  )
+  redirect('/dashboard')
 }

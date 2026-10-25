@@ -180,100 +180,16 @@ def test_project_quota_exceeded(
     assert p3.json()["error"]["code"] == "PLAN_LIMIT_REACHED"
 
 
-def test_repository_lifecycle(
+def test_team_details_update_and_members(
     client: TestClient, db_session: Session, owner_user: User, setup_team: Team
 ) -> None:
     auth_client(client, owner_user)
 
-    # Create a project first
-    p_res = client.post(
-        f"/teams/{setup_team.id}/projects",
-        json={"name": "Inventory App"},
-        headers={"Origin": FRONTEND},
-    )
-    project_id = p_res.json()["id"]
-
-    # Connect repository
-    repo_res = client.post(
-        f"/projects/{project_id}/repositories",
-        json={
-            "github_repository_id": "987654",
-            "owner": "acme",
-            "name": "inventory-app",
-            "url": "https://github.com/acme/inventory-app",
-            "default_branch": "main",
-        },
-        headers={"Origin": FRONTEND},
-    )
-    assert repo_res.status_code == 201
-    repo = repo_res.json()
-    repo_id = repo["id"]
-    assert repo["name"] == "inventory-app"
-    assert repo["default_branch"] == "main"
-    assert repo["deployment_branch"] == "main"
-
-    # Duplicate connect should conflict
-    dup_res = client.post(
-        f"/projects/{project_id}/repositories",
-        json={
-            "github_repository_id": "987654",
-            "owner": "acme",
-            "name": "inventory-app",
-            "url": "https://github.com/acme/inventory-app",
-            "default_branch": "main",
-        },
-        headers={"Origin": FRONTEND},
-    )
-    assert dup_res.status_code == 409
-
-    # List project repositories
-    list_repos = client.get(f"/projects/{project_id}/repositories")
-    assert list_repos.status_code == 200
-    assert len(list_repos.json()) == 1
-
-    # List branches
-    branches_res = client.get(f"/repositories/{repo_id}/branches")
-    assert branches_res.status_code == 200
-    branches = branches_res.json()
-    assert len(branches) >= 1
-    assert any(b["name"] == "main" and b["is_deployment_branch"] for b in branches)
-
-    # Change deployment branch
-    switch_res = client.put(
-        f"/repositories/{repo_id}/deployment-branch",
-        json={"branch_name": "release"},
-        headers={"Origin": FRONTEND},
-    )
-    assert switch_res.status_code == 200
-    assert switch_res.json()["name"] == "release"
-    assert switch_res.json()["is_deployment_branch"] is True
-
-    # List commits
-    commits_res = client.get(f"/repositories/{repo_id}/commits")
-    assert commits_res.status_code == 200
-    assert len(commits_res.json()) >= 1
-
-    # Available repositories
-    avail_res = client.get("/repositories/available")
-    assert avail_res.status_code == 200
-    assert len(avail_res.json()) >= 3
-
-    # Repository details
-    repo_get = client.get(f"/repositories/{repo_id}")
-    assert repo_get.status_code == 200
-    assert repo_get.json()["id"] == repo_id
-
-    # Repository not found
-    bad_repo = client.get(f"/repositories/{uuid.uuid4()}")
-    assert bad_repo.status_code == 404
-
-    # Team details
     team_res = client.get(f"/teams/{setup_team.id}")
     assert team_res.status_code == 200
     assert team_res.json()["name"] == "Engineering Team"
     assert team_res.json()["member_count"] >= 1
 
-    # Team update
     team_update = client.patch(
         f"/teams/{setup_team.id}",
         json={"name": "Engineering Alpha"},
@@ -282,7 +198,6 @@ def test_repository_lifecycle(
     assert team_update.status_code == 200
     assert team_update.json()["name"] == "Engineering Alpha"
 
-    # List team members
     members_res = client.get(f"/teams/{setup_team.id}/members")
     assert members_res.status_code == 200
     members = members_res.json()

@@ -27,6 +27,12 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-accent-strong: var(--accent-strong);
+  --color-border-strong: var(--border-strong);
+  --color-icon-surface: var(--icon-surface);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -48,74 +54,97 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Design tokens. Every text/control pair is checked by `node scripts/contrast.mjs`
+ * (WCAG 2.2 AA). Brand blue #2F6BFF is 4.49:1 on white and brand teal #19D3C5 is 1.88:1,
+ * so light mode uses darker shades for text; raw teal is only used on dark surfaces or as
+ * decoration that carries no information.
+ */
 :root {
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, 'Cascadia Code', Menlo, Consolas, monospace;
+  --brand-blue: #2f6bff;
+  --brand-teal: #19d3c5;
+
+  --background: #ffffff;
+  --foreground: #0b1220;
+  --card: #ffffff;
+  --card-foreground: #0b1220;
+  --popover: #ffffff;
+  --popover-foreground: #0b1220;
+  --primary: #1f5ae6;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f8;
+  --secondary-foreground: #0b1220;
+  --muted: #f3f6fa;
+  --muted-foreground: #5c6b82;
+  --accent: #eef2f8;
+  --accent-foreground: #0b1220;
+  --accent-strong: #0b7f76;
+  --destructive: #b42318;
+  --warning: #8a5300;
+  --success: #0f7a3d;
+  --info: #1f5ae6;
+  --border: #dbe2ec;
+  --border-strong: #7a8ba6;
+  --input: #7a8ba6;
+  --ring: #1f5ae6;
+  /* surfaces that hold official AWS icons: the icons are made for light backgrounds */
+  --icon-surface: #ffffff;
+  --chart-1: #1f5ae6;
+  --chart-2: #0b7f76;
+  --chart-3: #8a5300;
+  --chart-4: #6b46c1;
+  --chart-5: #b42318;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #f7f9fc;
+  --sidebar-foreground: #0b1220;
+  --sidebar-primary: #1f5ae6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef2f8;
+  --sidebar-accent-foreground: #0b1220;
+  --sidebar-border: #dbe2ec;
+  --sidebar-ring: #1f5ae6;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0b1220;
+  --foreground: #e8edf5;
+  --card: #162033;
+  --card-foreground: #e8edf5;
+  --popover: #162033;
+  --popover-foreground: #e8edf5;
+  --primary: #7aa2ff;
+  --primary-foreground: #0b1220;
+  --secondary: #1d2a40;
+  --secondary-foreground: #e8edf5;
+  --muted: #1d2a40;
+  --muted-foreground: #9aa8bd;
+  --accent: #1d2a40;
+  --accent-foreground: #e8edf5;
+  --accent-strong: #19d3c5;
+  --destructive: #ff8a80;
+  --warning: #f5b84a;
+  --success: #4ade80;
+  --info: #7aa2ff;
+  --border: #26344d;
+  --border-strong: #5a6a85;
+  --input: #5a6a85;
+  --ring: #7aa2ff;
+  --icon-surface: #f3f6fa;
+  --chart-1: #7aa2ff;
+  --chart-2: #19d3c5;
+  --chart-3: #f5b84a;
+  --chart-4: #b794f4;
+  --chart-5: #ff8a80;
+  --sidebar: #0f182a;
+  --sidebar-foreground: #e8edf5;
+  --sidebar-primary: #7aa2ff;
+  --sidebar-primary-foreground: #0b1220;
+  --sidebar-accent: #1d2a40;
+  --sidebar-accent-foreground: #e8edf5;
+  --sidebar-border: #26344d;
+  --sidebar-ring: #7aa2ff;
 }
 
 @layer base {
@@ -124,6 +153,19 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Visible keyboard focus everywhere (WCAG 2.4.7 / 2.4.11). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
   html {
     @apply font-sans;

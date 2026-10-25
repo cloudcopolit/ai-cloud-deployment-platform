@@ -34,15 +34,22 @@ services:
     <<: *hardening
     restart: "no"
     tmpfs: [/tmp]
+    environment: &production-env
+      # Pinned here so a missing value in the env file can never enable dev-login or seeding.
+      ENVIRONMENT: production
+      SEED_DEV_DATA: "false"
 
   backend:
     <<: *hardening
     tmpfs: [/tmp]
+    environment: *production-env
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
 
   frontend:
     <<: *hardening
+    environment:
+      DEV_LOGIN_ENABLED: "false"
     tmpfs:
       - /tmp
       - /app/.next/cache:uid=1000,gid=1000

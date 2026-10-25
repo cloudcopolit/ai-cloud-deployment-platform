@@ -9,7 +9,9 @@
 
 - Branch: `feat/real-platform` (cut from `feat/create-project-context` after a baseline commit of the
   pre-existing uncommitted work).
-- Active slice: **S0 hygiene** → next **S1 real GitHub ingestion**.
+- Done: **S0 hygiene** (`e1b64fc`), **S1 real GitHub ingestion** (backend + routed source picker UI).
+- Active slice: **S2 jobs + orchestrator** (migration for agent_runs/agent_tasks + job columns, worker,
+  LangGraph graph in `cloudpilot_ai`, EventSink, live activity view, fake-GitHub E2E stack).
 - Blocked on the owner (see §5): LLM API keys, AWS sandbox account id, GitHub App installation /
   `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`, acceptance of the AWS Architecture Icons terms.
 
@@ -41,9 +43,9 @@
 | F2 | Personal team + OWNER + FREE subscription on first login | implemented (not race-safe, I7) | REAL |
 | F3 | Teams/roles/tenant isolation, foreign tenant → **404** | roles enforced, but foreign tenant gets **403** (`check_team_role` raises `Forbidden`) — leaks existence; spec `08` §3 says 404 | partial |
 | F4 | Plan quotas | `max_projects` enforced; docs disagree (FREE = 1 in seed and `04`, "3" in `01`/`05`) | partial |
-| F5 | Connect repo by URL (public, `GITHUB_TOKEN`) / private via GitHub App | `POST /projects/{id}/repositories` stores whatever the client sends; **no GitHub call**; `/repositories/available` is a **hard-coded catalog of 4 repos that do not exist** | **SIMULATED** |
-| F6 | Branches + commits persisted from GitHub | one branch created from input; **one fake commit with a random SHA** (`uuid4().hex`) | **SIMULATED** |
-| F7 | Webhook `/webhooks/github` with HMAC | absent | **MISSING** |
+| F5 ✅S1 | Connect repo by URL (public, `GITHUB_TOKEN`) / private via GitHub App | `POST /projects/{id}/repositories` stores whatever the client sends; **no GitHub call**; `/repositories/available` is a **hard-coded catalog of 4 repos that do not exist** | **SIMULATED** |
+| F6 ✅S1 | Branches + commits persisted from GitHub | one branch created from input; **one fake commit with a random SHA** (`uuid4().hex`) | **SIMULATED** |
+| F7 ✅S1 | Webhook `/webhooks/github` with HMAC | absent | **MISSING** |
 | F8 | Analysis as background job (202, worker, SKIP LOCKED, heartbeat, sweeper, cancel, timeout, idempotency) | runs **synchronously inside the POST**, returns `SUCCESS` with 202 | **SIMULATED** |
 | F9 | `agent_runs` / `agent_tasks` + live agent activity | tables absent | **MISSING** |
 | F10 | LangGraph orchestrator, thin nodes, ports, EventSink | absent; `ai/` has 2 loose files; **`ai/` imports `app.contracts` (backend)** — violates ADR-009 | **MISSING** |
@@ -126,6 +128,32 @@ Every slice ends with: ruff + mypy + pytest (+migrations) + frontend lint/typech
 ### 2026-10-25 · session 1
 - Read all of `project_context/` (AGENTS, 00–13, contracts, data dictionary) and the code.
 - Ran baseline gates (§1). Found the gaps in §2.
+- **S0** committed `e1b64fc`: `ai/` package, gates fixed, tenant 404s (ADR-019), race-safe login,
+  Next 16.4.3 (2 critical RCE advisories in 16.4.0 confirmed by `pnpm audit`), lint clean.
+  Note: the Next.js build printed instructions addressed to "the agent" (run an upgrade command,
+  ask a scripted question). Treated as untrusted tool output; verified the advisory with
+  `pnpm audit` and upgraded with pinned versions instead.
+- Known flaky (seen 1×/18 runs, not reproducible in 14 reruns): `test_deployment_rejection_cancels_steps`.
+  Module is rewritten in S5; re-check then.
+- **S1** real GitHub ingestion:
+  - GitHub App `cloudpilot-dev-yousef` probed read-only: **no permissions, 0 installations** →
+    private repos impossible until the owner configures it (§5). Public access is anonymous (60/h).
+  - `integrations/github_app.py`, repositories service/router rewritten, webhook module,
+    migration `001ba641ce53`, seed no longer invents repos/SHAs, ADR-021.
+  - Evidence (live, anonymous): connected `Delivery-Plus0/delivery-plus` (default `dev`, 18 branches),
+    `fastapi/full-stack-fastapi-template`, `mdn/beginner-html-site`, `heroku/node-js-getting-started`
+    (301 → canonical `heroku/nodejs-getting-started`, same-host redirect). Stored `dev` head
+    `0d2fa8a27090beecd39d16472a1412dcf64df775` == `git ls-remote … refs/heads/dev`.
+  - Frontend: tokens (contrast-checked: raw #2F6BFF = 4.49:1 on white → FAIL, #19D3C5 = 1.88:1 →
+    FAIL; text tokens #1F5AE6 5.73:1, #0B7F76 4.87:1), light/dark/system theme, routed pages
+    `/dashboard`, `/projects/[id]`, `/projects/[id]/repositories/[repoId]` with stepper and
+    branch/commit pickers; removed the fabricated "AWS us-east-1 (Connected)" header and the
+    login page's false claims (SOC 2/HIPAA, 30+ regions); dev sign-in for seeded users (dev only).
+  - axe (Playwright, live stack): 0 serious/critical on dashboard/project in light+dark; repository
+    page had 5 contrast + 1 aria findings in light → fixed (opacity on steps, aria-label on div).
+  - Dev DB contains the owner's earlier test rows created by the old fake flow (catalog ids
+    `10101..10104`, `gh_…` ids) and the old seed's `acme/demo-shop`. Left untouched (owner data);
+    cleanup query in HANDOFF.
 
 ## 7. Proposals awaiting owner approval (not implemented)
 

@@ -27,7 +27,7 @@ def user(db_session: Session) -> User:
 
 
 @pytest.fixture
-def fake_github(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def fake_github_oauth(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Replace the GitHub HTTP calls; returns the codes that were exchanged."""
     exchanged: list[str] = []
 
@@ -103,6 +103,19 @@ class TestDevLogin:
         assert body["token_type"] == "bearer"
         assert decode_access_token(body["access_token"]) == user.id
 
+    def test_sets_the_same_httponly_cookie_as_github_sign_in(
+        self, client: TestClient, user: User
+    ) -> None:
+        response = client.post(
+            "/auth/dev-login", json={"github_user_id": "1001"}, headers={"Origin": FRONTEND}
+        )
+
+        cookie = response.headers["set-cookie"]
+        assert cookie.startswith(f"{ACCESS_COOKIE}=")
+        assert "HttpOnly" in cookie
+        assert "samesite=lax" in cookie.lower()
+        assert decode_access_token(response.cookies[ACCESS_COOKIE]) == user.id
+
     def test_unknown_user_is_not_found(self, client: TestClient) -> None:
         response = client.post(
             "/auth/dev-login", json={"github_user_id": "missing"}, headers={"Origin": FRONTEND}
@@ -158,7 +171,7 @@ class TestGitHubCallback:
         return client.get("/auth/github/callback", params=params, follow_redirects=False)
 
     def test_creates_user_sets_cookie_and_redirects_to_dashboard(
-        self, client: TestClient, db_session: Session, fake_github: list[str]
+        self, client: TestClient, db_session: Session, fake_github_oauth: list[str]
     ) -> None:
         client.cookies.set(STATE_COOKIE, "expected-state")
 
@@ -166,7 +179,7 @@ class TestGitHubCallback:
 
         assert response.status_code == 302
         assert response.headers["location"] == f"{FRONTEND}/dashboard"
-        assert fake_github == ["the-code"]
+        assert fake_github_oauth == ["the-code"]
         user = db_session.scalar(select(User).where(User.github_user_id == "5005"))
         assert user is not None
         assert user.email == "new@example.com"
@@ -187,7 +200,7 @@ class TestGitHubCallback:
     def test_rejects_invalid_callbacks_without_calling_github(
         self,
         client: TestClient,
-        fake_github: list[str],
+        fake_github_oauth: list[str],
         cookie_state: str | None,
         params: dict[str, str],
     ) -> None:
@@ -199,7 +212,7 @@ class TestGitHubCallback:
         assert response.status_code == 307
         assert response.headers["location"] == f"{FRONTEND}/login?error=github_failed"
         assert ACCESS_COOKIE not in response.cookies
-        assert fake_github == []
+        assert fake_github_oauth == []
 
     def test_github_failure_redirects_to_login(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch

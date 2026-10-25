@@ -61,7 +61,9 @@ from sqlalchemy import Engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.db.session import engine, get_db  # noqa: E402
+from app.integrations.github_app import get_github_client  # noqa: E402
 from app.main import app  # noqa: E402
+from tests.fakes import FakeGitHub  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -102,3 +104,17 @@ def client(db_session: Session) -> Iterator[TestClient]:
             yield test_client
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def fake_github() -> Iterator[FakeGitHub]:
+    """Every test gets an empty in-memory GitHub, so no test can reach the real one.
+    Tests that need repositories add them: ``fake_github.add_repo("o", "r")``."""
+    fake = FakeGitHub()
+    github_client = fake.client()
+    app.dependency_overrides[get_github_client] = lambda: github_client
+    try:
+        yield fake
+    finally:
+        app.dependency_overrides.pop(get_github_client, None)
+        github_client.close()

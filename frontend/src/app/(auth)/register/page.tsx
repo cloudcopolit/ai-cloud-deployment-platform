@@ -1,7 +1,6 @@
-import React from 'react'
+import { redirect } from 'next/navigation'
 
-function page() {
-  return <div>page</div>
+/* There are no CloudPilot passwords: accounts are created on first GitHub sign-in. */
+export default function RegisterPage() {
+  redirect('/login')
 }
-
-export default page

@@ -29,6 +29,11 @@ class BadRequest(CloudPilotError):
     code = "BAD_REQUEST"
 
 
+class Unauthorized(CloudPilotError):
+    status_code = 401
+    code = "UNAUTHENTICATED"
+
+
 class NotFound(CloudPilotError):
     status_code = 404
     code = "NOT_FOUND"
