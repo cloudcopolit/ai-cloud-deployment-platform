@@ -14,20 +14,21 @@
 | 005 | `VARCHAR`+`CHECK` instead of enums; `ON DELETE RESTRICT`; archive not delete | Accepted |
 | 006 | JSONB for AI documents, normalize only what is queried | Accepted |
 | 007 | Add `BLOCKED`, `TIMED_OUT`, `CANCELLED` job statuses | Accepted |
-| 008 | DB-backed job queue (`FOR UPDATE SKIP LOCKED`) | Proposed |
+| 008 | DB-backed job queue (`FOR UPDATE SKIP LOCKED`) | Accepted |
 | 009 | AI layer as an in-process sibling package behind a narrow interface | Accepted |
 | 010 | Two IAM roles per customer account: read-only and deploy | Proposed |
 | 011 | Generalize `approvals` to deployments | Proposed |
 | 012 | Break the `agent_runs` ↔ `deployments`/`incidents` FK cycle across migrations | Proposed |
 | 013 | Terraform state lives in the customer's own S3 bucket | Proposed |
-| 014 | LangGraph for orchestration with thin nodes | Proposed (AI brief: "consider") |
-| 015 | Deterministic-first analysis, LLM only for ambiguity | Proposed |
-| 016 | Polling for job status (SSE later) | Proposed |
-| 017 | Domain exceptions in services + one error envelope | Proposed |
+| 014 | LangGraph for orchestration with thin nodes | Accepted |
+| 015 | Deterministic-first analysis, LLM only for ambiguity | Accepted |
+| 016 | Polling for job status (SSE later) | Accepted |
+| 017 | Domain exceptions in services + one error envelope | Accepted |
 | 018 | Shared `contracts` package consumed by backend and AI layer | Accepted (variant, see text) |
 | 019 | Foreign tenant → 404, insufficient role → 403 | Accepted |
 | 020 | Official AWS icon package kept out of git, `public/` and images; generated subset only | Accepted |
 | 021 | Repository access resolution (App → token → anonymous); connect by URL; repos per project | Accepted |
+| 022 | Multi-provider LLM gateway with discovered models; LLM only for two ambiguity questions | Accepted |
 
 ---
 
@@ -131,6 +132,16 @@
 4. Q-3: the same GitHub repository may be connected to several projects (`UNIQUE(project_id, github_repository_id)`); webhooks fan out to every project that has the pushed branch as its deployment branch.
 5. Webhooks are HMAC-verified (`X-Hub-Signature-256`), idempotent on `(repository_id, sha)`, disabled (404) until `GITHUB_WEBHOOK_SECRET` is set, and never deploy (Q-11 default).
 **Consequences.** Real data only; anonymous mode is limited to 60 API requests/hour, so the UI reads cached commits first. Private repositories need the owner to grant the App `Contents: read` + `Metadata: read` and install it.
+
+## ADR-022 · Multi-provider LLM gateway — Accepted (2026-10-26, closes Q-2)
+**Context.** Q-2 asked which provider and what may be sent. The owner requires OpenAI, Anthropic, Gemini and xAI, no hardcoded model names, fallback, budgets and redaction.
+**Decision.**
+1. `cloudpilot_ai.llm.MultiProviderGateway` tries providers in `LLM_PROVIDER_PRIORITY` order and falls through on auth/rate-limit/timeout/outage/refusal. Anthropic uses the official `anthropic` SDK (`models.list()` filtered to structured-output-capable models, `messages.parse` with a Pydantic schema); OpenAI and xAI use their OpenAI-compatible REST API (`/models`, `/chat/completions` JSON mode); Gemini its REST API (`models`, `generateContent` with a JSON mime type).
+2. Models are discovered from each provider's list-models endpoint; a preference policy picks one (Anthropic: newest Opus, then Sonnet; OpenAI/xAI: newest general chat model; Gemini: highest stable Pro). `LLM_MODEL_<PROVIDER>` may pin one, honored only if listed.
+3. Prompts are redacted at the gateway (same secret patterns as the analyzer) and capped at 24,000 characters; output must validate (extra fields forbidden), one repair attempt, then `LLM_INVALID_OUTPUT`. Per-job budget: 6 calls / 60,000 tokens by default. Cost is reported only when `LLM_PRICE_<PROVIDER>` is set; otherwise "unknown", never $0.
+4. A provider without a key is never called and is reported MOCKED-ONLY (`GET /llm/providers`, `python -m app.llm_health`).
+5. What is sent (Q-2): only for services whose kind or port the detectors could not determine, at most 4 redacted excerpts of at most 3,000 characters per service, framed as untrusted data. Answers apply only if they cite a file that was shown; an LLM failure leaves the question for the user.
+**Consequences.** Deterministic analysis is complete without any key. The retention/privacy statement for the chosen provider is still the owner's to publish (HANDOFF).
 
 ---
 

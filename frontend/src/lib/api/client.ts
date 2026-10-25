@@ -9,13 +9,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 export async function apiFetch<T>(
   path: string,
   schema: z.ZodType<T>,
-  init: { method?: string; body?: unknown; signal?: AbortSignal } = {}
+  init: { method?: string; body?: unknown; signal?: AbortSignal; headers?: Record<string, string> } = {}
 ): Promise<ApiResult<T>> {
   try {
     const res = await fetch(`${API_URL}${path}`, {
       method: init.method ?? 'GET',
       credentials: 'include',
-      headers: init.body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: {
+        ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...init.headers
+      },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
       signal: init.signal
     })

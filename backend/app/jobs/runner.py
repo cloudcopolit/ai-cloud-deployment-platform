@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.integrations.github_app import GitHubClient
+from app.integrations.llm import build_gateway
 from app.jobs.gateway import GitHubRepositoryGateway
 from app.jobs.queue import Finish, finish, heartbeat
 from app.jobs.sink import DbEventSink
@@ -111,6 +112,7 @@ def execute(
             ),
             sink=DbEventSink(session_factory, analysis_id=job_id, project_id=project.id),
             analysis_agent=analyze_repository,
+            llm=build_gateway(),  # per job: its own budget and usage
             cancel=_Flag(cancel),
             timeout_s=settings.job_timeout_s,
             policies=policies,

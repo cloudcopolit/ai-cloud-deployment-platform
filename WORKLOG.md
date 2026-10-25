@@ -9,9 +9,11 @@
 
 - Branch: `feat/real-platform` (cut from `feat/create-project-context` after a baseline commit of the
   pre-existing uncommitted work).
-- Done: **S0 hygiene** (`e1b64fc`), **S1 real GitHub ingestion** (backend + routed source picker UI).
-- Active slice: **S2 jobs + orchestrator** (migration for agent_runs/agent_tasks + job columns, worker,
-  LangGraph graph in `cloudpilot_ai`, EventSink, live activity view, fake-GitHub E2E stack).
+- Done: **S0** (`e1b64fc`), **S1** GitHub ingestion (`dc6a92b`), **S2** jobs + LangGraph orchestrator +
+  real deterministic analysis (`d9bf873`, `5be4d6a`) + live activity UI + E2E, **S3** LLM gateway
+  (MOCKED-ONLY until keys).
+- Next: **S4 architecture** (price table from the AWS Price List via `scripts/refresh_aws_prices.py`,
+  pattern catalog, versions, AWS-icon diagram), then S5 AWS/deploy, S6 frontend polish, S7.
 - Blocked on the owner (see §5): LLM API keys, AWS sandbox account id, GitHub App installation /
   `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`, acceptance of the AWS Architecture Icons terms.
 
@@ -154,6 +156,24 @@ Every slice ends with: ruff + mypy + pytest (+migrations) + frontend lint/typech
   - Dev DB contains the owner's earlier test rows created by the old fake flow (catalog ids
     `10101..10104`, `gh_…` ids) and the old seed's `acme/demo-shop`. Left untouched (owner data);
     cleanup query in HANDOFF.
+
+### 2026-10-26 · session 2
+- S2 evidence (live worker, anonymous GitHub): `Delivery-Plus0/delivery-plus@dev` (678 files). First
+  run BLOCKED with a phantom root service; root causes: one shared root Dockerfile built per service
+  through compose build args, libraries counted as services, ports only in `.env.example`, NestJS
+  `@Controller('health')`, Compose `!reset` tags. Fixed (`5be4d6a`): 12/12 services, ports 3000-3011
+  equal to each `.env.example`, `/health` on each, Kafka/PostgreSQL/Redis, SUCCESS in about 11 s.
+- E2E stack: `scripts/e2e.sh` (fake GitHub server, isolated DB, ports 3100/8100). 8/8 Playwright specs
+  pass incl. axe (0 serious/critical) on overview, project, repository and analysis pages. Earlier
+  runs failed on an npm-registry network error and two test-locator mistakes; one real UI bug found
+  and fixed (commit/branch selection lagged behind the URL update).
+- S3: LLM gateway (ADR-022). No keys in `.env`, so all four providers are MOCKED-ONLY; deterministic
+  analysis is unaffected and the LLM step shows as SKIPPED with the reason.
+- Claude API skill consulted: the Anthropic adapter uses the official SDK (`anthropic==2.3.0`); the
+  installed SDK types `ModelInfo.capabilities` as an object, not the dict the docs show (verified).
+- The AWS public Price List is reachable without credentials; every S4 price is available except NAT
+  Gateway (only in the 481 MB EC2 offer), so the container archetype avoids NAT (tasks in public
+  subnets, security group admits only the ALB), recorded as an assumption and a risk.
 
 ## 7. Proposals awaiting owner approval (not implemented)
 

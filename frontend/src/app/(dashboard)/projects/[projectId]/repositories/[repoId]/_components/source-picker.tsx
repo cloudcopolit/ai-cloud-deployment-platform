@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useId, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { Play, RefreshCw } from 'lucide-react'
 
 import { ErrorState } from '@/components/app/states'
 import { Button } from '@/components/ui/button'
@@ -10,29 +10,39 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api/client'
 import type { ApiFailure } from '@/lib/api/result'
-import { BranchSchema, CommitSchema, RepositorySchema, type Branch, type Commit } from '@/lib/api/schemas'
+import {
+  AnalysisJobSchema,
+  BranchSchema,
+  CommitSchema,
+  RepositorySchema,
+  type Branch,
+  type Commit
+} from '@/lib/api/schemas'
 import { commitTitle, formatRelative, shortSha } from '@/lib/format'
 
 type Props = {
   repoId: string
+  projectId: string
   branches: Branch[]
   canAdmin: boolean
 }
 
-export function SourcePicker({ repoId, branches: initialBranches, canAdmin }: Props) {
+export function SourcePicker({ repoId, projectId, branches: initialBranches, canAdmin }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
   const branchSelectId = useId()
   const [branches, setBranches] = useState(initialBranches)
   const deployment = branches.find((b) => b.is_deployment_branch)?.name ?? branches[0]?.name ?? ''
-  const branch = params.get('branch') ?? deployment
-  const sha = params.get('sha')
+  // Local state answers clicks at once; the URL mirrors it so a selection can be shared.
+  const [branch, setBranch] = useState(params.get('branch') ?? deployment)
+  const [sha, setSha] = useState<string | null>(params.get('sha'))
 
   const [commits, setCommits] = useState<Commit[] | null>(null)
   const [failure, setFailure] = useState<ApiFailure | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [starting, setStarting] = useState(false)
 
   const setParams = useCallback(
     (next: Record<string, string | null>) => {
@@ -91,6 +101,24 @@ export function SourcePicker({ repoId, branches: initialBranches, canAdmin }: Pr
     setSyncing(false)
   }
 
+  async function analyze() {
+    if (!chosen) return
+    setStarting(true)
+    setFailure(null)
+    // One key per click: a double submit or a retried request reuses the same job.
+    const res = await apiFetch(`/repositories/${repoId}/analyses`, AnalysisJobSchema, {
+      method: 'POST',
+      body: { branch, commit_sha: chosen.sha },
+      headers: { 'Idempotency-Key': crypto.randomUUID() }
+    })
+    if (!res.ok) {
+      setFailure(res)
+      setStarting(false)
+      return
+    }
+    router.push(`/projects/${projectId}/repositories/${repoId}/analyses/${res.data.id}`)
+  }
+
   async function makeDeploymentBranch() {
     const res = await apiFetch(`/repositories/${repoId}/deployment-branch`, BranchSchema, {
       method: 'PUT',
@@ -115,6 +143,8 @@ export function SourcePicker({ repoId, branches: initialBranches, canAdmin }: Pr
             value={branch}
             onChange={(e) => {
               setCommits(null)
+              setBranch(e.target.value)
+              setSha(null)
               setParams({ branch: e.target.value, sha: null })
             }}
             className="h-9 min-w-56 rounded-lg border border-input bg-background px-2 font-mono text-sm"
@@ -169,7 +199,10 @@ export function SourcePicker({ repoId, branches: initialBranches, canAdmin }: Pr
                       name="commit"
                       className="mt-1 accent-[var(--primary)]"
                       checked={checked}
-                      onChange={() => setParams({ branch, sha: c.sha })}
+                      onChange={() => {
+                        setSha(c.sha)
+                        setParams({ branch, sha: c.sha })
+                      }}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{commitTitle(c.message)}</span>
@@ -186,6 +219,19 @@ export function SourcePicker({ repoId, branches: initialBranches, canAdmin }: Pr
           </ul>
         )}
       </fieldset>
+
+      <div className="flex flex-wrap items-center gap-3 border-t pt-4">
+        <Button type="button" size="lg" onClick={analyze} disabled={!chosen || starting}>
+          <Play className="size-4" aria-hidden />
+          {starting ? 'Queuing…' : 'Analyze this commit'}
+        </Button>
+        {chosen ? (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-mono">{shortSha(chosen.sha)}</span> on <span className="font-mono">{branch}</span>.
+            The analysis runs in the background; you can follow every step live.
+          </p>
+        ) : null}
+      </div>
     </div>
   )
 }

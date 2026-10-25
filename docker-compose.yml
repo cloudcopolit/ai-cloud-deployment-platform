@@ -22,6 +22,12 @@ x-backend-environment: &backend-environment
   GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
   GITHUB_APP_PRIVATE_KEY_PATH: /run/cloudpilot-secrets/github-app.pem
   GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+  # Language models (ADR-022). Empty keys = provider is MOCKED-ONLY and never called.
+  LLM_PROVIDER_PRIORITY: ${LLM_PROVIDER_PRIORITY:-anthropic,openai,gemini,xai}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  XAI_API_KEY: ${XAI_API_KEY:-}
   # LangGraph ships LangSmith tracing; it stays off so no run data leaves the platform.
   LANGSMITH_TRACING: "false"
   LANGCHAIN_TRACING_V2: "false"

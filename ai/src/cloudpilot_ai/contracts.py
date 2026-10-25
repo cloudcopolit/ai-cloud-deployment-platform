@@ -309,7 +309,7 @@ class Usage(Strict):
     calls: int = Field(default=0, ge=0)
     input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
-    cost_usd: float = Field(default=0.0, ge=0)
+    cost_usd: float | None = Field(default=None, ge=0)  # None = no price configured (unknown)
     latency_ms: int = Field(default=0, ge=0)
     mocked: bool = False  # True when no real provider was configured
 

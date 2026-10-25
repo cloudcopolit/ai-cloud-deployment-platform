@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 
+from cloudpilot_ai.analysis.ambiguity import ambiguous_services, resolve_with_llm
 from cloudpilot_ai.analysis.assemble import assemble
 from cloudpilot_ai.analysis.detect_infra import (
     detect_code_signals,
@@ -101,13 +102,22 @@ def analyze_repository(
             "possible_secrets": sum(1 for f in facts.blockers if f.code == "SECRET_COMMITTED"),
         }
 
+    model_used: str | None = None
     with run.task("resolve_ambiguity_with_llm") as task:
-        task.skipped = True
-        task.output = {
-            "reason": "no LLM provider is configured"
-            if llm is None or not llm.available
-            else "nothing ambiguous enough to need a model",
-        }
+        if llm is None or not llm.available:
+            task.skipped = True
+            task.output = {"reason": "no LLM provider is configured (MOCKED-ONLY)"}
+        elif not ambiguous_services(facts):
+            task.skipped = True
+            task.output = {"reason": "nothing ambiguous enough to need a model"}
+        else:
+            budget.check(Stage.ANALYZE)
+            task.output = resolve_with_llm(facts, llm)
+            usage = getattr(llm, "usage", None)
+            if callable(usage):
+                run.usage = usage()
+            if task.output.get("model"):
+                model_used = str(task.output["model"])
 
     budget.check(Stage.VALIDATE_REPORT)
     with run.task("assemble_report") as task:
@@ -116,7 +126,7 @@ def analyze_repository(
             repository=request.repository,
             answers=request.user_answers,
             duration_ms=int((time.monotonic() - started) * 1000),
-            model=None,
+            model=model_used,
         )
         task.output = {
             "services": len(report.services),

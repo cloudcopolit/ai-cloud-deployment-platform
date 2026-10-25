@@ -35,5 +35,24 @@ class Settings(BaseSettings):
     job_max_attempts: int = Field(2, ge=1)  # a lost job is re-queued until this many attempts
     max_active_jobs_per_team: int = Field(5, ge=1)
 
+    # Language models (ADR-022). A provider without a key is never called (MOCKED-ONLY).
+    llm_provider_priority: str = "anthropic,openai,gemini,xai"
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+    gemini_api_key: str | None = None
+    xai_api_key: str | None = None
+    # Optional: pin a model per provider; honored only if the provider lists it.
+    llm_model_anthropic: str | None = None
+    llm_model_openai: str | None = None
+    llm_model_gemini: str | None = None
+    llm_model_xai: str | None = None
+    # Optional "input,output" USD per 1M tokens; without it cost is reported as unknown.
+    llm_price_anthropic: str | None = None
+    llm_price_openai: str | None = None
+    llm_price_gemini: str | None = None
+    llm_price_xai: str | None = None
+    llm_max_calls_per_job: int = Field(6, ge=0)
+    llm_max_tokens_per_job: int = Field(60_000, ge=0)
+
 
 settings = Settings()

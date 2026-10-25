@@ -89,3 +89,152 @@ export const ErrorEnvelopeSchema = z.object({
     details: z.unknown().optional()
   })
 })
+
+/* ───────────── analysis jobs (05 §3.4) ───────────── */
+
+export const JobStatusSchema = z.enum(['QUEUED', 'RUNNING', 'SUCCESS', 'BLOCKED', 'FAILED', 'TIMED_OUT', 'CANCELLED'])
+export type JobStatus = z.infer<typeof JobStatusSchema>
+
+const EvidenceSchema = z.object({
+  file_path: z.string(),
+  line_start: z.number().nullable().optional(),
+  detector: z.string()
+})
+const FindingSchema = z.object({
+  code: z.string(),
+  severity: z.enum(['BLOCKER', 'WARNING', 'INFO']),
+  message: z.string(),
+  evidence: z.array(EvidenceSchema).default([]),
+  suggested_action: z.string().nullable().optional()
+})
+export type Finding = z.infer<typeof FindingSchema>
+
+const ServiceSchema = z.object({
+  name: z.string(),
+  service_type: z.string(),
+  language: z.string().nullable(),
+  framework: z.string().nullable(),
+  path: z.string(),
+  port: z.number().nullable(),
+  has_dockerfile: z.boolean(),
+  health_endpoint: z.string().nullable(),
+  confidence: z.number(),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+  evidence: z.array(EvidenceSchema).default([])
+})
+export type DetectedService = z.infer<typeof ServiceSchema>
+
+export const ReportSchema = z.object({
+  schema_version: z.string(),
+  summary: z.string(),
+  languages: z.array(z.object({ name: z.string(), share_percent: z.number().nullable().optional() })).default([]),
+  frameworks: z.array(z.object({ name: z.string(), version: z.string().nullable().optional(), kind: z.string() })).default([]),
+  services: z.array(ServiceSchema).default([]),
+  dependencies: z.array(z.object({ ecosystem: z.string(), name: z.string(), dev_only: z.boolean() })).default([]),
+  config_files: z.array(z.object({ path: z.string(), kind: z.string() })).default([]),
+  data_stores: z.array(
+    z.object({ engine: z.string(), inferred_from: z.string(), confidence: z.number(), evidence: z.array(EvidenceSchema).default([]) })
+  ).default([]),
+  env_vars: z.array(z.object({ name: z.string(), required: z.boolean(), referenced_in: z.string().nullable().optional() })).default([]),
+  blockers: z.array(FindingSchema).default([]),
+  warnings: z.array(FindingSchema).default([]),
+  missing_info: z.array(z.object({ key: z.string(), question: z.string(), required: z.boolean() })).default([]),
+  unsupported: z.array(z.object({ name: z.string(), reason: z.string() })).default([]),
+  recommendation: z
+    .object({
+      method: z.enum(['container', 'static_site', 'serverless', 'unsupported']),
+      reasoning: z.string(),
+      services: z.array(z.string()).default([]),
+      automated_by_cloudpilot: z.boolean(),
+      confidence: z.number()
+    })
+    .nullable()
+    .optional(),
+  overall_confidence: z.number(),
+  meta: z.object({
+    analyzer_version: z.string(),
+    files_scanned: z.number(),
+    files_skipped: z.number(),
+    truncated: z.boolean(),
+    duration_ms: z.number(),
+    model: z.string().nullable().optional()
+  })
+})
+export type Report = z.infer<typeof ReportSchema>
+
+export const AnalysisJobSchema = z.object({
+  id: z.string(),
+  repository_id: z.string(),
+  project_id: z.string(),
+  commit_sha: z.string(),
+  branch_name: z.string().nullable(),
+  status: JobStatusSchema,
+  terminal: z.boolean(),
+  created_at: z.string(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  duration_ms: z.number().nullable(),
+  attempts: z.number(),
+  cancel_requested: z.boolean(),
+  parent_analysis_id: z.string().nullable(),
+  user_answers: z.record(z.string(), z.string()).default({}),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+  warnings: z.array(z.object({ code: z.string(), message: z.string() }).passthrough()).default([]),
+  services_count: z.number(),
+  report: ReportSchema.nullable()
+})
+export type AnalysisJob = z.infer<typeof AnalysisJobSchema>
+
+const TaskSchema = z.object({
+  id: z.string(),
+  task_type: z.string(),
+  status: z.enum(['QUEUED', 'RUNNING', 'SUCCESS', 'FAILED', 'SKIPPED']),
+  step_order: z.number(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  duration_ms: z.number().nullable(),
+  output: z.record(z.string(), z.unknown()).nullable(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable()
+})
+export type AgentTask = z.infer<typeof TaskSchema>
+
+const UsageSchema = z.object({
+  provider: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  calls: z.number().default(0),
+  input_tokens: z.number().default(0),
+  output_tokens: z.number().default(0),
+  cost_usd: z.number().default(0),
+  latency_ms: z.number().default(0),
+  mocked: z.boolean().default(false)
+})
+
+const RunSchema = z.object({
+  id: z.string(),
+  agent_type: z.string(),
+  status: JobStatusSchema,
+  model: z.string().nullable(),
+  usage: UsageSchema.nullable(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  duration_ms: z.number().nullable(),
+  input: z.record(z.string(), z.unknown()).nullable(),
+  output: z.record(z.string(), z.unknown()).nullable(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+  tasks: z.array(TaskSchema)
+})
+export type AgentRun = z.infer<typeof RunSchema>
+
+export const ActivitySchema = z.object({
+  analysis_id: z.string(),
+  status: JobStatusSchema,
+  terminal: z.boolean(),
+  attempts: z.number(),
+  cancel_requested: z.boolean(),
+  heartbeat_at: z.string().nullable(),
+  runs: z.array(RunSchema)
+})
+export type Activity = z.infer<typeof ActivitySchema>

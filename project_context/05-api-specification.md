@@ -73,10 +73,15 @@
 | PUT | `/repositories/{repo_id}/deployment-branch` | ✔ | A | `{branch_name}` of a known branch; exactly one per repository |
 | GET | `/repositories/{repo_id}/commits` | ✔ | M | `?branch=&refresh=&limit=&offset=`. Stored commits of a branch; `refresh=true` reads the latest page from GitHub first (real SHAs) |
 | POST | `/webhooks/github` | HMAC | – | `X-Hub-Signature-256` verified (constant time); 404 while `GITHUB_WEBHOOK_SECRET` is unset; push to a deployment branch records commits idempotently; never triggers a deployment (Q-11). Exempt from the Origin check |
-| POST | `/repositories/{repo_id}/analyses` | ⚠️ | M | Returns 202 but currently runs a canned analyzer synchronously; no GitHub content retrieval or persisted worker |
-| GET | `/analyses/{analysis_id}` | ✔ | M | Get analysis report, detected services, and confidence |
-| GET | `/repositories/{repo_id}/analyses` | ✔ | M | List repository analysis history |
-| GET | `/projects/{project_id}/analyses` | ✔ | M | List project-wide analyses |
+| POST | `/repositories/{repo_id}/analyses` | ✔ | M | `{branch?, commit_sha?}` (default: deployment-branch head; SHA verified on GitHub). **202** + `Location: /analyses/{id}`, job `QUEUED`; the worker runs it. `Idempotency-Key` returns the same job. 409 archived project · 429 `RATE_LIMITED` (team active-job limit) |
+| GET | `/analyses/{analysis_id}` | ✔ | M | status (`QUEUED/RUNNING/SUCCESS/BLOCKED/FAILED/TIMED_OUT/CANCELLED`), `terminal`, attempts, error, warnings, `report` (AnalysisReport v1.1) when finished |
+| GET | `/analyses/{analysis_id}/activity` | ✔ | M | agent runs (ORCHESTRATOR, ANALYSIS, ...) with tasks, status, timing, model/usage, errors; poll every 1-2 s |
+| GET | `/analyses/{analysis_id}/services` | ✔ | M | normalized `services` rows |
+| POST | `/analyses/{analysis_id}/cancel` | ✔ | M | 202; QUEUED becomes CANCELLED now, RUNNING gets `cancel_requested` (worker stops at its next heartbeat); 409 if finished |
+| POST | `/analyses/{analysis_id}/answers` | ✔ | M | `{answers: {key: value}}` for a BLOCKED analysis's `missing_info`; queues a new analysis of the same commit (202). 400 unknown keys · 409 not BLOCKED |
+| GET | `/repositories/{repo_id}/analyses` | ✔ | M | history, `?limit&offset` |
+| GET | `/projects/{project_id}/analyses` | ✔ | M | project-wide history |
+| GET | `/llm/providers` | ✔ | – | REAL / MOCKED-ONLY per provider, reachability, discovered model; `?refresh=true`. Never keys |
 | POST | `/analyses/{analysis_id}/architectures` | ✔ | M | Generate AWS Architecture Plan (201 Created) |
 | GET | `/projects/{project_id}/architectures` | ✔ | M | List project architectures with latest version |
 | GET | `/architectures/{arch_id}/versions/{version_number}` | ✔ | M | Get specific architecture version with component DAG & cost |

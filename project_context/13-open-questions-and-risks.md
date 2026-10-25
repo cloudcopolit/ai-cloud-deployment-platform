@@ -7,7 +7,7 @@
 | # | Question | Why it matters | Recommendation 💡 | Owner | Needed by |
 |---|---|---|---|---|---|
 | **Q-1** | Where does the AI layer live (sibling package vs separate service) and where do shared contracts live? | import rules, CI, deploy | sibling `ai/` package, in-process, shared `contracts` package (ADR-009/018) | AI + Backend | before A1 |
-| **Q-2** | Which LLM provider/model, and what may be sent to it (code excerpts)? Retention and privacy statement? | cost, quality, customer trust | one provider behind an adapter; send only redacted excerpts; document it in the UI | AI lead | before A2.6 |
+| ~~Q-2~~ | **Closed by ADR-022 (2026-10-26):** four providers behind one gateway; redacted excerpts only, for two ambiguity questions; provider retention statement still to publish. | | | AI lead | done |
 | ~~Q-3~~ | **Closed by ADR-021 (2026-10-25):** the same GitHub repository may be connected to several projects; webhooks fan out. | | | Backend | done |
 | **Q-4** | Team invitations: add by GitHub username only, or invite by email with accept flow? | `teams` module scope | MVP: add existing users by GitHub username; invites later | Backend/Product | before B1.3 |
 | **Q-5** | Is AWS discovery of existing infrastructure part of the MVP (brief diagram shows it)? Where are findings stored? | extra IAM role, extra complexity | defer; if needed store in `analysis_data` (no new table) | AI + Product | before A3.4 |

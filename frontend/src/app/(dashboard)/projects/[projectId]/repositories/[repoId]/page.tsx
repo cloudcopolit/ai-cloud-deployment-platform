@@ -6,8 +6,17 @@ import { CapabilityBadge, ErrorState } from '@/components/app/states'
 import { Stepper } from '@/components/app/stepper'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiGet } from '@/lib/api/server'
-import { BranchSchema, ProjectSchema, RepositorySchema, TeamSchema } from '@/lib/api/schemas'
-import { formatRelative } from '@/lib/format'
+import Link from 'next/link'
+
+import { StatusBadge } from '@/components/app/status-badge'
+import {
+  AnalysisJobSchema,
+  BranchSchema,
+  ProjectSchema,
+  RepositorySchema,
+  TeamSchema
+} from '@/lib/api/schemas'
+import { formatRelative, shortSha } from '@/lib/format'
 import { SourcePicker } from './_components/source-picker'
 
 export const metadata = { title: 'Repository' }
@@ -30,11 +39,12 @@ const ACCESS_LABEL = {
 
 async function RepositoryContent({ params }: { params: Params }) {
   const { projectId, repoId } = await params
-  const [repo, branches, project, teams] = await Promise.all([
+  const [repo, branches, project, teams, analyses] = await Promise.all([
     apiGet(`/repositories/${repoId}`, RepositorySchema),
     apiGet(`/repositories/${repoId}/branches`, BranchSchema.array()),
     apiGet(`/projects/${projectId}`, ProjectSchema),
-    apiGet('/teams', TeamSchema.array())
+    apiGet('/teams', TeamSchema.array()),
+    apiGet(`/repositories/${repoId}/analyses?limit=10`, AnalysisJobSchema.array())
   ])
   if (!repo.ok) return <ErrorState failure={repo} />
   if (!project.ok) return <ErrorState failure={project} />
@@ -82,12 +92,7 @@ async function RepositoryContent({ params }: { params: Params }) {
       <Stepper
         steps={[
           { id: 'source', label: 'Source', state: 'current' },
-          {
-            id: 'analysis',
-            label: 'Analysis',
-            state: 'locked',
-            reason: 'Background analysis is being built (WORKLOG S2)'
-          },
+          { id: 'analysis', label: 'Analysis', state: 'todo' },
           { id: 'architecture', label: 'Architecture', state: 'locked', reason: 'Needs an analysis' },
           { id: 'aws', label: 'AWS account', state: 'locked', reason: 'Needs an architecture' },
           { id: 'deploy', label: 'Plan & deploy', state: 'locked', reason: 'Needs approval' }
@@ -106,9 +111,42 @@ async function RepositoryContent({ params }: { params: Params }) {
           </p>
         </div>
         {branches.ok ? (
-          <SourcePicker repoId={r.id} branches={branches.data} canAdmin={canAdmin} />
+          <SourcePicker repoId={r.id} projectId={projectId} branches={branches.data} canAdmin={canAdmin} />
         ) : (
           <ErrorState failure={branches} />
+        )}
+      </section>
+
+      <section aria-labelledby="history" className="space-y-3">
+        <h2 id="history" className="text-lg font-semibold">
+          Recent analyses
+        </h2>
+        {!analyses.ok ? (
+          <ErrorState failure={analyses} />
+        ) : analyses.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">None yet.</p>
+        ) : (
+          <ul className="divide-y rounded-xl border">
+            {analyses.data.map((a) => (
+              <li key={a.id}>
+                <Link
+                  href={`/projects/${projectId}/repositories/${r.id}/analyses/${a.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3 hover:bg-muted/40"
+                >
+                  <span className="text-sm">
+                    <span className="font-mono">{shortSha(a.commit_sha)}</span>
+                    {a.branch_name ? ` on ${a.branch_name}` : ''} · {a.services_count} service
+                    {a.services_count === 1 ? '' : 's'}
+                    {a.parent_analysis_id ? ' · re-run with answers' : ''}
+                  </span>
+                  <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {formatRelative(a.created_at)}
+                    <StatusBadge status={a.status} compact />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </>
