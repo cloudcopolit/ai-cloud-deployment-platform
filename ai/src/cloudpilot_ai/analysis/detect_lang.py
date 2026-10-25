@@ -136,6 +136,10 @@ GO_STORES = {
     "github.com/rabbitmq/amqp091-go": "rabbitmq",
     "github.com/streadway/amqp": "rabbitmq",
     "github.com/nats-io/nats.go": "nats",
+    "gorm.io/driver/sqlite": "sqlite",
+    "github.com/mattn/go-sqlite3": "sqlite",
+    "gorm.io/driver/postgres": "postgresql",
+    "gorm.io/driver/mysql": "mysql",
 }
 
 _PEP508 = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*([^;#]*)")
@@ -260,7 +264,7 @@ def _python_service(
             facts.framework(display, kind, _version(spec), 0.95, ev)
             if best is None or (best[3] is ServiceType.WORKER and stype is not ServiceType.WORKER):
                 best = (display, kind, port, stype)
-        if key in PY_STORES and not dev:
+        if key in PY_STORES and not dev and not in_non_service_dir(manifest):
             facts.data_store(PY_STORES[key], f"{name} in {manifest}", 0.9, ev)
         if key == "sqlalchemy" and not dev:
             facts.framework("SQLAlchemy", "other", _version(spec), 0.9, ev)
@@ -321,7 +325,7 @@ def detect_node(facts: Facts) -> None:
                 )
                 if rank > current:
                     found = (display, kind, port, stype)
-            if name in NODE_STORES and name in deps:
+            if name in NODE_STORES and name in deps and not in_non_service_dir(path):
                 facts.data_store(NODE_STORES[name], f"{name} in {path}", 0.9, ev)
             if name in {"@prisma/client", "prisma"}:
                 facts.framework("Prisma", "other", _version(spec), 0.9, ev)
@@ -335,7 +339,10 @@ def detect_node(facts: Facts) -> None:
             continue
         if found is None and not is_server_script:
             continue
-        runnable = any(k in scripts for k in ("start", "start:prod", "serve", "dev"))
+        own_dockerfile = snap.exists(f"{'' if root == '.' else root + '/'}Dockerfile")
+        runnable = own_dockerfile or any(
+            k in scripts for k in ("start", "start:prod", "serve", "dev")
+        )
         if found is not None and found[3] is not None and not runnable:
             continue  # e.g. a shared library that depends on NestJS: built, never started
         svc = facts.service(root, default_name=_pkg_name(data.get("name")))
@@ -417,7 +424,7 @@ def detect_jvm(facts: Facts) -> None:
                 ev = facts.evidence(path, "jvm_build", line_of(text, text.find(artifact)))
                 facts.data_store(JVM_STORES[artifact], f"{artifact} in {path}", 0.9, ev)
         web = any(
-            a in artifacts for a in ("spring-boot-starter-web", "spring-boot-starter-webflux")
+            a.startswith("spring-boot-starter-web") and not a.endswith("-test") for a in artifacts
         )
         quarkus = any(a.startswith("quarkus-") for a in artifacts)
         if not (web or quarkus or "spring-boot-starter" in " ".join(artifacts)) or is_module_parent:

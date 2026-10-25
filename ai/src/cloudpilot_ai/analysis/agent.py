@@ -16,6 +16,7 @@ from cloudpilot_ai.analysis.detect_infra import (
     detect_config_files,
     detect_dockerfiles,
     detect_env,
+    detect_k8s_images,
     detect_static,
 )
 from cloudpilot_ai.analysis.detect_lang import (
@@ -77,6 +78,7 @@ def analyze_repository(
     with run.task("detect_containers_and_config") as task:
         detect_dockerfiles(facts)
         detect_compose(facts)
+        detect_k8s_images(facts)
         detect_static(facts)
         detect_config_files(facts)
         task.output = {

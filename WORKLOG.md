@@ -174,6 +174,24 @@ Every slice ends with: ruff + mypy + pytest (+migrations) + frontend lint/typech
 - The AWS public Price List is reachable without credentials; every S4 price is available except NAT
   Gateway (only in the 481 MB EC2 offer), so the container archetype avoids NAT (tasks in public
   subnets, security group admits only the ALB), recorded as an assumption and a risk.
+- Eval harness `ai/eval/run_eval.py` + `ai/eval/labels.yaml` (15 public repos, 37 labelled services,
+  shallow clones read as bytes, nothing executed). Deterministic analyzer only; the 4 LLM columns
+  are "not run (MOCKED-ONLY: no API key)".
+  - Baseline (first labels): services P 0.88 / R 1.00 · frameworks 0.94 / 0.94 · data_stores
+    0.73 / 0.79 · ports 0.91 (n=33) · recommendation 1.00 (n=15).
+  - Two labels were wrong and were corrected after re-reading the repos, disclosed in
+    `labels.yaml`: heroku/python-getting-started is SQLite as committed (psycopg is commented out),
+    and microservices-demo needs PostgreSQL (AlloyDB) for shoppingassistantservice.
+  - General rule fixes, no repo-specific code: tooling Dockerfiles and directories; `FROM postgres`
+    images become data stores; Spring Boot 4 starters; GORM drivers; k8s manifest images; compose
+    sub-directory Dockerfiles; SQLite next to a server DB dropped as a dev fallback. The eval also
+    caught a real crash (`KeyError` in compose for `build: ./project/db`), now a golden test.
+  - After the fixes (measured `docker run … run_eval.py`): services 1.00 / 1.00 · frameworks
+    1.00 / 1.00 · data_stores 1.00 / 1.00 · ports 0.97 (n=33) · recommendation 1.00. The one port
+    miss (nestjs-boilerplate `APP_PORT=3001`, code default 3000) was then fixed with a golden test;
+    re-run: ports 1.00 (n=33), every field 1.00, file `ai/eval/results/eval-20261025.json`.
+  - Caveat: the same person labelled the repos and fixed the rules, so these scores overfit this
+    set. A held-out set is needed before quoting accuracy.
 
 ## 7. Proposals awaiting owner approval (not implemented)
 

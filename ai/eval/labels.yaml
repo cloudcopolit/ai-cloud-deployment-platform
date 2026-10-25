@@ -1,0 +1,124 @@
+# Hand-labelled ground truth for ai/eval/run_eval.py.
+# Labelled from each repository's files at the commit noted (shallow clone, 2026-10-26).
+# `services`: directories that are deployable runtime services (libraries, examples, tests,
+# tooling and one-shot seeders are not). `port`: the port the service listens on by default.
+# `data_stores`: engines the application uses at runtime (CloudPilot engine names).
+
+repositories:
+  Delivery-Plus0/delivery-plus:  # 0d2fa8a, branch dev; ports from services/*/.env.example
+    branch: dev
+    services:
+      - {path: services/api-gateway, framework: NestJS, port: 3000}
+      - {path: services/auth-service, framework: NestJS, port: 3001}
+      - {path: services/user-service, framework: NestJS, port: 3002}
+      - {path: services/restaurant-service, framework: NestJS, port: 3003}
+      - {path: services/menu-service, framework: NestJS, port: 3004}
+      - {path: services/cart-service, framework: NestJS, port: 3005}
+      - {path: services/order-service, framework: NestJS, port: 3006}
+      - {path: services/payment-service, framework: NestJS, port: 3007}
+      - {path: services/driver-service, framework: NestJS, port: 3008}
+      - {path: services/delivery-service, framework: NestJS, port: 3009}
+      - {path: services/tracking-service, framework: NestJS, port: 3010}
+      - {path: services/notification-service, framework: NestJS, port: 3011}
+    data_stores: [kafka, postgresql, redis]
+    recommendation: container
+
+  fastapi/full-stack-fastapi-template:  # b1125d8; backend :8000 in compose.override.yml; frontend is a Vite SPA
+    branch: master
+    services:
+      - {path: backend, framework: FastAPI, port: 8000}
+      - {path: frontend, framework: React}
+    data_stores: [postgresql]
+    recommendation: container
+
+  heroku/nodejs-getting-started:  # 8b8dec1; index.js `PORT || 5006`
+    services:
+      - {path: ".", framework: Express, port: 5006}
+    data_stores: []
+    recommendation: container
+
+  mdn/beginner-html-site:  # 6cf801f; plain index.html
+    services:
+      - {path: "."}
+    data_stores: []
+    recommendation: static_site
+
+  spring-projects/spring-petclinic:  # 500158f; Spring Boot default 8080; mysql/postgres profiles + compose
+    services:
+      - {path: ".", framework: Spring Boot, port: 8080}
+    data_stores: [mysql, postgresql]
+    recommendation: container
+
+  dockersamples/example-voting-app:  # 63e9150; vote and result EXPOSE 80; worker is .NET background
+    services:
+      - {path: vote, framework: Flask, port: 80}
+      - {path: result, framework: Express, port: 80}
+      - {path: worker, framework: .NET}
+    data_stores: [postgresql, redis]
+    recommendation: container
+
+  pallets/flask:  # d086db8; a library: examples/ and tests/ are not services
+    services: []
+    data_stores: []
+    recommendation: unsupported
+
+  expressjs/express:  # 1c6f1b0; a library: examples/ are not services
+    services: []
+    data_stores: []
+    recommendation: unsupported
+
+  heroku/python-getting-started:  # 561bc55; Django, gunicorn.conf.py binds PORT default 5006
+    # Corrected 2026-10-26 after re-reading requirements.txt: psycopg is commented out, so as
+    # committed only the SQLite fallback works (first label said postgresql).
+    services:
+      - {path: ".", framework: Django, port: 5006}
+    data_stores: [sqlite]
+    recommendation: container
+
+  brocoders/nestjs-boilerplate:  # 9620f15; NestJS, PORT=3001 in env-example-*; relational or document variant
+    services:
+      - {path: ".", framework: NestJS, port: 3001}
+    data_stores: [mongodb, postgresql]
+    recommendation: container
+
+  vercel/commerce:  # f7521d5; Next.js app, Shopify API is external
+    services:
+      - {path: ".", framework: Next.js, port: 3000}
+    data_stores: []
+    recommendation: container
+
+  GoogleCloudPlatform/microservices-demo:  # 38e7348; ports from each src/*/Dockerfile EXPOSE; loadgenerator is a Locust test tool
+    services:
+      - {path: src/adservice, port: 9555}
+      - {path: src/cartservice/src, framework: .NET, port: 7070}
+      - {path: src/checkoutservice, port: 5050}
+      - {path: src/currencyservice, port: 7000}
+      - {path: src/emailservice, port: 8080}
+      - {path: src/frontend, framework: gorilla/mux, port: 8080}
+      - {path: src/paymentservice, port: 50051}
+      - {path: src/productcatalogservice, port: 3550}
+      - {path: src/recommendationservice, port: 8080}
+      - {path: src/shippingservice, port: 50051}
+      - {path: src/shoppingassistantservice, framework: Flask, port: 8080}
+    # Corrected 2026-10-26: shoppingassistantservice requires AlloyDB (PostgreSQL-compatible)
+    # through psycopg/SQLAlchemy; the first label left it out as optional.
+    data_stores: [postgresql, redis]  # redis: cart store in kubernetes-manifests
+    recommendation: container
+
+  testdrivenio/fastapi-tdd-docker:  # 16433b6; uvicorn --port 8000 in compose; project/db only builds the postgres image
+    services:
+      - {path: project, framework: FastAPI, port: 8000}
+    data_stores: [postgresql]
+    recommendation: container
+
+  gothinkster/golang-gin-realworld-example-app:  # 626c372; Gin, PORT=8080 in .env.example, GORM SQLite
+    services:
+      - {path: ".", framework: Gin, port: 8080}
+    data_stores: [sqlite]
+    recommendation: container
+
+  mdn/todo-react:  # d28218c; Vite + React SPA, needs `npm run build`
+    services:
+      - {path: ".", framework: React}
+    data_stores: []
+    recommendation: static_site

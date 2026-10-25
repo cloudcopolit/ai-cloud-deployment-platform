@@ -313,3 +313,41 @@ def test_monorepo_with_a_shared_root_dockerfile() -> None:
     assert "INVALID_COMPOSE_FILE" not in codes(report.warnings)  # Compose's !reset tag is fine
     assert "NO_DOCKERFILE" not in codes(report.warnings)
     assert {d.engine for d in report.data_stores} == {"kafka", "postgresql"}
+
+
+def test_compose_built_database_image_is_a_data_store_not_a_service() -> None:
+    """Found by the evaluation (testdrivenio/fastapi-tdd-docker): it used to crash."""
+    files = {
+        "docker-compose.yml": "services:\n  web:\n    build: ./project\n    ports: ['8004:8000']\n"
+        "  web-db:\n    build:\n      context: ./project/db\n      dockerfile: Dockerfile\n",
+        "project/requirements.txt": "fastapi==0.115.0\nasyncpg==0.29.0\n",
+        "project/Dockerfile": "FROM python:3.12-slim\nEXPOSE 8000\n",
+        "project/db/Dockerfile": "FROM postgres:17\nADD create.sql /docker-entrypoint-initdb.d\n",
+        "project/db/create.sql": "CREATE DATABASE web_dev;\n",
+    }
+    report = analyze(files)
+    assert [s.path for s in report.services] == ["project"]
+    assert {d.engine for d in report.data_stores} == {"postgresql"}
+
+
+def test_tooling_dockerfiles_and_directories_are_not_services() -> None:
+    files = repos.FASTAPI_POSTGRES | {
+        "Dockerfile.playwright": "FROM mcr.microsoft.com/playwright:v1\n",
+        "loadgenerator/Dockerfile": "FROM python:3.12\nCMD locust\n",
+        "examples/demo/requirements.txt": "flask==3.0.3\nredis==5.0.8\n",
+    }
+    report = analyze(files)
+    assert [s.path for s in report.services] == ["."]
+    assert {d.engine for d in report.data_stores} == {"postgresql"}  # examples/ redis ignored
+
+
+def test_app_port_in_env_example_beats_code_fallback() -> None:
+    """Found by the evaluation (brocoders/nestjs-boilerplate): APP_PORT=3001, code default 3000."""
+    files = {
+        "package.json": '{"name":"api","scripts":{"start:prod":"node dist/main"},'
+        '"dependencies":{"@nestjs/core":"11.0.0","pg":"8.13.0"}}',
+        "src/main.ts": "await app.listen(process.env.PORT || 3000);\n",
+        "env-example-relational": "NODE_ENV=development\nAPP_PORT=3001\nDATABASE_PORT=5432\n",
+    }
+    report = analyze(files)
+    assert [(s.path, s.port) for s in report.services] == [(".", 3001)]

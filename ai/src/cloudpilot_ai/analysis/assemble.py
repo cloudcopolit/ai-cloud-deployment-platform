@@ -69,7 +69,12 @@ def _resolve_services(facts: Facts) -> list[ServiceCandidate]:
             # Dockerfile (if any) is the shared one each service builds
         if svc.service_type is None and svc.dockerfile is None and not svc.static_site:
             continue
-        if root != "." and in_non_service_dir(root + "/x") and svc.compose_name is None:
+        if (
+            root != "."
+            and in_non_service_dir(root + "/x")
+            and svc.compose_name is None
+            and svc.dockerfile is None
+        ):
             continue
         kept.append(svc)
     # A root Dockerfile next to sub-services usually builds one of them; keep it only if it
@@ -288,6 +293,16 @@ def assemble(
                 "only plan it when it ships as a container.",
             )
 
+    server_dbs = {"postgresql", "mysql", "mariadb", "mongodb", "cassandra", "dynamodb"}
+    if "sqlite" in facts.data_stores and server_dbs & set(facts.data_stores):
+        sqlite = facts.data_stores.pop("sqlite")
+        facts.finding(
+            "SQLITE_DEV_FALLBACK",
+            Severity.INFO,
+            "SQLite is used next to a server database, presumably for local development; "
+            "it is not part of the deployment.",
+            evidence=list(sqlite.evidence),
+        )
     stores = set(facts.data_stores)
     if "sqlite" in stores and not stores - {"sqlite", "s3", "minio"}:
         choice = answers.get("datastore:sqlite", "").strip().lower()

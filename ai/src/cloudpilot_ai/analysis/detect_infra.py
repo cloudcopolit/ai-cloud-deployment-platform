@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from cloudpilot_ai.analysis.facts import ConfigKind, Facts, directory_of, line_of
-from cloudpilot_ai.analysis.files import Kind, in_non_service_dir
+from cloudpilot_ai.analysis.files import Kind, in_non_service_dir, is_tooling_dockerfile
 from cloudpilot_ai.contracts import ServiceType, Severity
 
 # image name fragment -> data store engine (compose "image:" services are infrastructure)
@@ -96,7 +96,10 @@ DB_URL_SIGNALS = [
     (re.compile(r"mongodb(?:\+srv)?://"), "mongodb"),
     (re.compile(r"\bredis://"), "redis"),
 ]
+# Env keys that name the application's own listening port (DATABASE_PORT etc. do not).
+APP_PORT_KEYS = frozenset({"PORT", "APP_PORT", "SERVER_PORT", "HTTP_PORT", "API_PORT", "WEB_PORT"})
 PORT_IN_CODE = [
+    re.compile(r"""(?:environ\.get|getenv|Getenv)\(\s*["']PORT["']\s*,\s*["']?(\d{2,5})"""),
     re.compile(r"""\.listen\(\s*(?:process\.env\.PORT\s*(?:\|\||\?\?)\s*)?(\d{2,5})"""),
     re.compile(r"""PORT\s*(?:\|\||\?\?|or)\s*["']?(\d{2,5})"""),
     re.compile(r"""\bport\s*=\s*(\d{2,5})\b"""),
@@ -125,6 +128,21 @@ def detect_dockerfiles(facts: Facts) -> None:
         text = facts.snapshot.files[path]
         facts.config(path, "dockerfile", "dockerfile")
         if in_non_service_dir(path) and not path.startswith(("docker/", "deploy/")):
+            continue
+        if is_tooling_dockerfile(path):
+            continue  # test, CI or developer-tool image
+        bases = re.findall(r"^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)", text, re.M | re.I)
+        final = bases[-1].lower() if bases else ""
+        store = next(
+            (e for f, e in IMAGE_STORES.items() if final.startswith(f) or f"/{f}" in final), None
+        )
+        if store is not None:
+            facts.data_store(
+                store,
+                f"{path} builds a {final[:60]} image",
+                0.9,
+                facts.evidence(path, "dockerfile_from"),
+            )
             continue
         root = directory_of(path)
         if root in {"docker", "deploy", ".docker"}:
@@ -259,19 +277,29 @@ def detect_compose(facts: Facts) -> None:
             build = spec.get("build")
             image = str(spec.get("image") or "").lower()
             if build:
+                dockerfile_ref = build.get("dockerfile") if isinstance(build, dict) else None
+                if dockerfile_ref and is_tooling_dockerfile(str(dockerfile_ref)):
+                    continue  # test or developer-tool image, not the application
                 root = _compose_root(facts, base, str(name), build)
                 if root is None:
                     continue
-                if root != "." and isinstance(build, dict) and "context" in build:
-                    context_dir = posixpath.normpath(posixpath.join(base, str(build["context"])))
-                    dockerfile = posixpath.join(
-                        "" if context_dir == "." else context_dir,
-                        str(build.get("dockerfile", "Dockerfile")),
+                if root == "." and dockerfile_ref and "/" in str(dockerfile_ref):
+                    root = posixpath.dirname(
+                        posixpath.normpath(posixpath.join(base, str(dockerfile_ref)))
                     )
-                    if facts.snapshot.exists(dockerfile):
-                        facts.services.setdefault(root, facts.service(root)).dockerfile = (
-                            facts.services[root].dockerfile or dockerfile
-                        )
+                context = build if isinstance(build, str) else build.get("context", ".")
+                context_dir = posixpath.normpath(posixpath.join(base, str(context)))
+                dockerfile = posixpath.normpath(
+                    posixpath.join(context_dir, str(dockerfile_ref or "Dockerfile"))
+                )
+                if facts.snapshot.exists(dockerfile) and root not in facts.services:
+                    # The Dockerfile detector already judged this image (tooling or a data
+                    # store such as FROM postgres); compose does not turn it into a service.
+                    continue
+                if facts.snapshot.exists(dockerfile) and root != ".":
+                    target = facts.services[root]
+                    target.dockerfile = target.dockerfile or dockerfile
+                    if context_dir == ".":  # one root Dockerfile built once per service
                         facts.shared_dockerfiles.add(dockerfile)
                 svc = facts.service(root or ".", default_name=str(name))
                 svc.compose_name = str(name)[:255]
@@ -279,8 +307,15 @@ def detect_compose(facts: Facts) -> None:
                     svc.name = str(name)[:255]
                 svc.add_evidence(ev)
                 svc.confidence = max(svc.confidence, 0.8)
+                builds_other = (
+                    dockerfile_ref is not None
+                    and svc.dockerfile is not None
+                    and posixpath.basename(str(dockerfile_ref))
+                    != posixpath.basename(svc.dockerfile)
+                )
                 for port in _compose_ports(spec.get("ports") or spec.get("expose")):
-                    svc.set_port(port, 0.8, f"ports in {path}")
+                    if not builds_other:
+                        svc.set_port(port, 0.8, f"ports in {path}")
                     break
                 if isinstance(build, dict) and build.get("dockerfile"):
                     svc.dockerfile = svc.dockerfile or posixpath.normpath(
@@ -304,6 +339,20 @@ def detect_compose(facts: Facts) -> None:
                     )
 
 
+def detect_k8s_images(facts: Facts) -> None:
+    for path in facts.snapshot.of_kind(Kind.K8S):
+        text = facts.snapshot.files[path]
+        for m in re.finditer(r"^\s*image:\s*[\"']?([\w./:@-]+)", text, re.M):
+            image = m.group(1).lower()
+            if any(tool in image for tool in DEV_TOOL_IMAGES):
+                continue
+            for fragment, engine in IMAGE_STORES.items():
+                if image.startswith(fragment) or f"/{fragment}" in image:
+                    ev = facts.evidence(path, "k8s_image", line_of(text, m.start()))
+                    facts.data_store(engine, f"image {image[:80]} in {path}", 0.85, ev)
+                    break
+
+
 # ───────────────────────── environment variables ─────────────────────────
 def detect_env(facts: Facts) -> None:
     snap = facts.snapshot
@@ -317,9 +366,9 @@ def detect_env(facts: Facts) -> None:
             key, _, value = line.removeprefix("export ").partition("=")
             key, value = key.strip(), value.strip().strip("\"'")
             facts.env(key, path)
-            # PORT=3001 in a service's own env example is a strong port signal
+            # PORT=3001 (or APP_PORT=…) in a service's own env example is a strong port signal
             if (
-                key == "PORT"
+                key in APP_PORT_KEYS
                 and value.isdigit()
                 and owner is not None
                 and owner.root == directory_of(path)
@@ -339,7 +388,7 @@ def detect_code_signals(facts: Facts) -> None:
     snap = facts.snapshot
     for path in snap.of_kind(Kind.SOURCE, Kind.ENTRY, Kind.PLATFORM, Kind.APP_CONFIG):
         text = snap.files[path]
-        for pattern, engine in DB_URL_SIGNALS:
+        for pattern, engine in DB_URL_SIGNALS if not in_non_service_dir(path) else []:
             m = pattern.search(text)
             if m:
                 ev = facts.evidence(path, "database_url", line_of(text, m.start()))
@@ -413,7 +462,7 @@ def detect_static(facts: Facts) -> None:
         svc.static_site = True
         svc.service_type = ServiceType.WEB
         svc.language = svc.language or "html"
-        svc.framework = svc.framework or "static HTML"
+        # plain HTML/CSS/JS: there is no framework to report
         svc.framework_kind = "frontend"
         svc.confidence = max(svc.confidence, 0.85)
         svc.add_evidence(facts.evidence(path, "static_index"))

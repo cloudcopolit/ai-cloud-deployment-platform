@@ -59,8 +59,32 @@ NON_SERVICE_DIRS = frozenset(
         ".github",
         ".devcontainer",
         "benchmarks",
+        # tooling around an application, not the application itself
+        "tools",
+        "tooling",
+        "hack",
+        "seed",
+        "seeds",
+        "seed-data",
+        "loadgenerator",
+        "load-generator",
+        "loadtest",
+        "load-test",
+        "loadtests",
+        # JS monorepo convention: packages/ holds libraries, apps/ holds applications
+        "packages",
     }
 )
+
+# Dockerfiles that build test, CI or developer-tool images rather than the application.
+TOOLING_DOCKERFILE = re.compile(
+    r"(?i)(playwright|cypress|selenium|e2e|\btest|\bci\b|debug|maildev|mailhog|devcontainer)"
+)
+
+
+def is_tooling_dockerfile(path: str) -> bool:
+    return bool(TOOLING_DOCKERFILE.search(path.rsplit("/", 1)[-1]))
+
 
 BINARY_EXT = frozenset(
     [
@@ -285,7 +309,8 @@ SECRET_NAME = re.compile(
 )
 COMPOSE_NAME = re.compile(r"^(docker-)?compose([.-][\w-]+)?\.ya?ml$")
 ENV_EXAMPLE = re.compile(
-    r"^(\.env\.(example|sample|template|dist|defaults)|example\.env|\.env\.\w+\.example)$"
+    r"^(\.env\.(example|sample|template|dist|defaults)|example\.env|\.env\.[\w-]+\.example|"
+    r"[\w-]+\.env\.example|env[.-](example|sample)([.-][\w-]+)?)$"
 )
 ENV_FILE = re.compile(r"^\.env(\.(local|dev|development|prod|production|staging|test))?$")
 INSTRUCTION_NAMES = frozenset({"readme.md", "agents.md", "claude.md", ".cursorrules", "readme"})
@@ -340,7 +365,8 @@ def classify(path: str) -> Kind:
     if lower.endswith(".tf"):
         return Kind.TERRAFORM
     if lower.endswith((".yaml", ".yml")) and any(
-        s in {"k8s", "kubernetes", "helm", "charts", "manifests"} for s in parts(directory)
+        any(k in s.lower() for k in ("k8s", "kubernetes", "helm", "manifests")) or s == "charts"
+        for s in parts(directory)
     ):
         return Kind.K8S
     if name in PLATFORM_FILES:
