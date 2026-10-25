@@ -135,3 +135,38 @@ MALICIOUS_INSTALL_HOOKS = {
     "server.js": "require('express')().listen(8080)\n",
     "Dockerfile": 'FROM node:24-slim\nEXPOSE 8080\nCMD ["node", "server.js"]\n',
 }
+
+# npm-workspaces monorepo built from one shared root Dockerfile (ARG SERVICE_NAME), as in
+# Delivery-Plus0/delivery-plus: compose maps each service through build args.
+_NEST_PKG = (
+    '{"name": "@food/%s", "scripts": {"build": "tsc", "start": "node dist/main.js"}, '
+    '"dependencies": {"@nestjs/core": "^10.0.0", "@nestjs/typeorm": "^10.0.0", "pg": "^8.11.0"}}'
+)
+MONOREPO_SHARED_DOCKERFILE = {
+    "package.json": '{"name": "food", "private": true, "workspaces": ["shared", "services/*"]}',
+    "package-lock.json": "{}",
+    "Dockerfile": "FROM node:22-alpine AS builder\nARG SERVICE_NAME\nCOPY . .\n"
+    "RUN npm ci && npm run build --workspace=@food/${SERVICE_NAME}\n"
+    'CMD ["sh", "-c", "node services/${SERVICE_NAME}/dist/main.js"]\n',
+    "docker-compose.yml": "services:\n"
+    "  auth-service:\n    build:\n      context: .\n      args:\n"
+    "        SERVICE_NAME: auth-service\n"
+    "    environment:\n      - DATABASE_URL=postgres://u:p@postgres:5432/auth\n"
+    "  order-service:\n    build:\n      context: .\n      args:\n"
+    "        SERVICE_NAME: order-service\n"
+    "  postgres:\n    image: postgres:16-alpine\n"
+    "  kafka:\n    image: confluentinc/cp-kafka:7.6.1\n",
+    "docker-compose.e2e.yml": "services:\n  auth-service:\n    ports: !reset []\n",
+    "shared/package.json": '{"name": "@food/shared", "scripts": {"build": "tsc"}, '
+    '"dependencies": {"@nestjs/common": "^10.0.0", "@nestjs/core": "^10.0.0"}}',
+    "services/auth-service/package.json": _NEST_PKG % "auth-service",
+    "services/auth-service/.env.example": "NODE_ENV=development\nPORT=3001\nDATABASE_URL=\n",
+    "services/auth-service/src/main.ts": "await app.listen(config.port)\n",
+    "services/auth-service/src/controllers/health.controller.ts": "@Controller('health')\n"
+    "export class HealthController {}\n",
+    "services/order-service/package.json": _NEST_PKG % "order-service",
+    "services/order-service/.env.example": "PORT=3006\nKAFKA_BROKERS=\n",
+    "services/order-service/src/config/app-config.ts": (
+        "port: parseInt(process.env.PORT || '3006', 10)\n"
+    ),
+}

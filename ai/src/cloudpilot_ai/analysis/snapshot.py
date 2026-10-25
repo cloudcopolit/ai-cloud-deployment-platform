@@ -8,6 +8,7 @@ from __future__ import annotations
 import concurrent.futures
 import hashlib
 import posixpath
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -23,7 +24,12 @@ from cloudpilot_ai.errors import AgentError, Budget
 from cloudpilot_ai.ports import RepositoryGateway
 
 MAX_FILE_BYTES = 256_000
-MAX_SOURCE_FILES = 160  # source files sampled for env-var, port and route references
+MAX_SOURCE_FILES = 200  # source files sampled for env-var, port and route references
+# file names that usually carry ports, env reads, routes or the start-up code
+SIGNAL_NAME = re.compile(
+    r"(?i)^(main|server|app|index|config|settings|application|bootstrap|routes?|urls|"
+    r"[\w.-]*(config|health|status|probe)[\w.-]*)\.(py|[cm]?[jt]sx?|go|java|kt|rb|php|rs)$"
+)
 READ_WORKERS = 8
 
 
@@ -83,10 +89,10 @@ def take_snapshot(
     candidates = [
         p for p, k in kinds.items() if k in READ_PRIORITY and sizes.get(p, 0) <= MAX_FILE_BYTES
     ]
-    # Source files: shallow and small first, bounded.
+    # Source files: likely config / entry / health files first, then shallow and small.
     sources = sorted(
         (p for p in candidates if kinds[p] is Kind.SOURCE),
-        key=lambda p: (p.count("/"), sizes.get(p, 0)),
+        key=lambda p: (not SIGNAL_NAME.search(p.rsplit("/", 1)[-1]), p.count("/"), sizes.get(p, 0)),
     )[:MAX_SOURCE_FILES]
     chosen = [p for p in candidates if kinds[p] is not Kind.SOURCE] + sources
     chosen.sort(key=lambda p: (READ_PRIORITY[kinds[p]], p.count("/"), p))

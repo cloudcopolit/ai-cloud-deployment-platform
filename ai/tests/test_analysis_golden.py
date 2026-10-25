@@ -295,3 +295,21 @@ def test_redact_keeps_placeholders_and_names() -> None:
     assert redact("DATABASE_URL=${DATABASE_URL}\nPASSWORD=changeme") == (
         "DATABASE_URL=${DATABASE_URL}\nPASSWORD=changeme"
     )
+
+
+def test_monorepo_with_a_shared_root_dockerfile() -> None:
+    report = analyze(repos.MONOREPO_SHARED_DOCKERFILE)
+    services = {s.name: s for s in report.services}
+    assert set(services) == {"auth-service", "order-service"}  # no root, no shared library
+    auth = services["auth-service"]
+    assert (auth.path, auth.port, auth.health_endpoint, auth.has_dockerfile) == (
+        "services/auth-service",
+        3001,
+        "/health",
+        True,
+    )
+    assert auth.metadata["dockerfile"] == "Dockerfile"
+    assert services["order-service"].port == 3006
+    assert "INVALID_COMPOSE_FILE" not in codes(report.warnings)  # Compose's !reset tag is fine
+    assert "NO_DOCKERFILE" not in codes(report.warnings)
+    assert {d.engine for d in report.data_stores} == {"kafka", "postgresql"}

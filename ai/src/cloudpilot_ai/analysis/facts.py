@@ -89,7 +89,9 @@ class Facts:
     warnings: list[Finding] = field(default_factory=list)
     missing: list[MissingInfo] = field(default_factory=list)
     unsupported: list[UnsupportedTechnology] = field(default_factory=list)
-    workspace_roots: set[str] = field(default_factory=set)  # monorepo roots (npm workspaces…)
+    workspace_roots: set[str] = field(default_factory=set)  # monorepo roots (npm workspaces...)
+    # Dockerfiles that compose builds once per service (e.g. root Dockerfile + ARG SERVICE_NAME)
+    shared_dockerfiles: set[str] = field(default_factory=set)
 
     # ───────────── helpers ─────────────
     def evidence(self, path: str, detector: str, line: int | None = None) -> Evidence:

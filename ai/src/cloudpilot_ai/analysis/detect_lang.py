@@ -335,6 +335,9 @@ def detect_node(facts: Facts) -> None:
             continue
         if found is None and not is_server_script:
             continue
+        runnable = any(k in scripts for k in ("start", "start:prod", "serve", "dev"))
+        if found is not None and found[3] is not None and not runnable:
+            continue  # e.g. a shared library that depends on NestJS: built, never started
         svc = facts.service(root, default_name=_pkg_name(data.get("name")))
         svc.language = svc.language or (
             "typescript" if "typescript" in dev_deps or "typescript" in deps else "javascript"

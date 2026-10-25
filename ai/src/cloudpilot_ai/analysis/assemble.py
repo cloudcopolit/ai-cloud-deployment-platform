@@ -60,8 +60,13 @@ DISPLAY = {
 def _resolve_services(facts: Facts) -> list[ServiceCandidate]:
     kept: list[ServiceCandidate] = []
     for root, svc in sorted(facts.services.items()):
-        if root in facts.workspace_roots and svc.framework is None and svc.dockerfile is None:
-            continue  # a monorepo root package.json that only holds workspaces
+        if (
+            root in facts.workspace_roots
+            and svc.framework is None
+            and (svc.dockerfile is None or svc.dockerfile in facts.shared_dockerfiles)
+        ):
+            continue  # a monorepo root: its package.json only holds workspaces and its
+            # Dockerfile (if any) is the shared one each service builds
         if svc.service_type is None and svc.dockerfile is None and not svc.static_site:
             continue
         if root != "." and in_non_service_dir(root + "/x") and svc.compose_name is None:

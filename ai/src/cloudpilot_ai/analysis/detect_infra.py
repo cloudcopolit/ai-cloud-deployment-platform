@@ -70,6 +70,9 @@ BASE_IMAGE_LANGUAGE = {
     "mcr.microsoft.com/dotnet": "csharp",
 }
 
+NEST_HEALTH = re.compile(
+    r"""@Controller\(\s*["'`]/?((?:api/)?(?:health\w*|ready\w*|live\w*|status))["'`]"""
+)
 HEALTH_ROUTE = re.compile(
     r"""(?:["'`])(/(?:api/)?(?:v\d+/)?(?:health(?:z|check)?|healthy|ready|readyz|livez|ping|status|actuator/health))(?:["'`])"""
 )
@@ -185,12 +188,55 @@ def _environment_keys(value: Any) -> list[str]:
     return []
 
 
+class _ComposeLoader(yaml.SafeLoader):
+    """safe_load plus Compose's custom tags (!reset, !override): tagged nodes load as plain
+    values. Nothing is constructed beyond scalars, lists and dicts."""
+
+
+def _tagged(loader: yaml.SafeLoader, suffix: str, node: yaml.Node) -> Any:
+    if isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    if isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_scalar(node)  # type: ignore[arg-type]
+
+
+_ComposeLoader.add_multi_constructor("!", _tagged)
+
+
+def _compose_root(facts: Facts, base: str, name: str, build: Any) -> str | None:
+    """Directory a compose service builds. A shared Dockerfile built from the repository root
+    with a build arg naming the service (common in monorepos) maps to that service's folder."""
+    context = (
+        build
+        if isinstance(build, str)
+        else build.get("context", ".")
+        if isinstance(build, dict)
+        else "."
+    )
+    root = posixpath.normpath(posixpath.join(base, str(context)))
+    if root.startswith(".."):
+        return None
+    if root != "." or not isinstance(build, dict):
+        return root
+    hints = {name.lower()}
+    args = build.get("args")
+    values = (
+        args.values() if isinstance(args, dict) else [str(a).split("=", 1)[-1] for a in args or []]
+    )
+    hints.update(str(v).lower() for v in values if v)
+    for candidate in facts.services:
+        if candidate != "." and posixpath.basename(candidate).lower() in hints:
+            return candidate
+    return root
+
+
 def detect_compose(facts: Facts) -> None:
     for path in facts.snapshot.of_kind(Kind.COMPOSE):
         text = facts.snapshot.files[path]
         facts.config(path, "compose", "compose")
         try:
-            data = yaml.safe_load(text)
+            data = yaml.load(text, Loader=_ComposeLoader)  # noqa: S506 - SafeLoader subclass
         except yaml.YAMLError:
             facts.finding(
                 "INVALID_COMPOSE_FILE",
@@ -213,20 +259,20 @@ def detect_compose(facts: Facts) -> None:
             build = spec.get("build")
             image = str(spec.get("image") or "").lower()
             if build:
-                context = (
-                    build
-                    if isinstance(build, str)
-                    else (build.get("context") or ".")
-                    if isinstance(build, dict)
-                    else "."
-                )
-                root = (
-                    posixpath.normpath(posixpath.join(base, str(context)))
-                    if base != "."
-                    else posixpath.normpath(str(context))
-                )
-                if root.startswith(".."):
+                root = _compose_root(facts, base, str(name), build)
+                if root is None:
                     continue
+                if root != "." and isinstance(build, dict) and "context" in build:
+                    context_dir = posixpath.normpath(posixpath.join(base, str(build["context"])))
+                    dockerfile = posixpath.join(
+                        "" if context_dir == "." else context_dir,
+                        str(build.get("dockerfile", "Dockerfile")),
+                    )
+                    if facts.snapshot.exists(dockerfile):
+                        facts.services.setdefault(root, facts.service(root)).dockerfile = (
+                            facts.services[root].dockerfile or dockerfile
+                        )
+                        facts.shared_dockerfiles.add(dockerfile)
                 svc = facts.service(root or ".", default_name=str(name))
                 svc.compose_name = str(name)[:255]
                 if svc.name in {facts.repo_name, posixpath.basename(svc.root)}:
@@ -263,12 +309,23 @@ def detect_env(facts: Facts) -> None:
     snap = facts.snapshot
     for path in snap.of_kind(Kind.ENV_EXAMPLE, Kind.ENV_FILE):
         facts.config(path, "env_example", "env_file")
-        for raw in snap.files[path].splitlines():
+        owner = _service_for(facts, path, create=False)
+        for number, raw in enumerate(snap.files[path].splitlines(), start=1):
             line = raw.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
-            key = line.split("=", 1)[0].removeprefix("export ").strip()
+            key, _, value = line.removeprefix("export ").partition("=")
+            key, value = key.strip(), value.strip().strip("\"'")
             facts.env(key, path)
+            # PORT=3001 in a service's own env example is a strong port signal
+            if (
+                key == "PORT"
+                and value.isdigit()
+                and owner is not None
+                and owner.root == directory_of(path)
+            ):
+                owner.set_port(int(value), 0.75, f"PORT in {path}")
+                owner.add_evidence(facts.evidence(path, "env_example_port", number))
     scanned = snap.of_kind(Kind.SOURCE, Kind.ENTRY, Kind.APP_CONFIG, Kind.DOCKERFILE)
     for path in scanned:
         text = snap.files[path]
@@ -325,9 +382,16 @@ def detect_code_signals(facts: Facts) -> None:
                 svc.add_evidence(facts.evidence(path, "port_in_code", line_of(text, m.start())))
                 break
         route = HEALTH_ROUTE.search(text)
-        if route and svc.health is None:
-            svc.health = route.group(1)
-            svc.add_evidence(facts.evidence(path, "health_route", line_of(text, route.start())))
+        nest = NEST_HEALTH.search(text)
+        if svc.health is None and (route or nest):
+            if route:
+                svc.health = route.group(1)
+                where = route.start()
+            else:
+                assert nest is not None  # noqa: S101 - one of the two matched
+                svc.health = "/" + nest.group(1)
+                where = nest.start()
+            svc.add_evidence(facts.evidence(path, "health_route", line_of(text, where)))
         if snap.kinds.get(path) is Kind.ENTRY:
             facts.entry(path, None, 0.6, "entry_file")
 
