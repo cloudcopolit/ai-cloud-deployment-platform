@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { commitTitle, formatDuration, formatRelative, shortSha } from './format'
+import { commitTitle, formatDuration, formatRelative, formatUsd, shortSha } from './format'
 
 describe('formatRelative', () => {
   const now = new Date('2026-10-25T12:00:00Z')
@@ -30,5 +30,13 @@ describe('formatDuration', () => {
     expect(formatDuration(12_340)).toBe('12.3 s')
     expect(formatDuration(125_000)).toBe('2 min 5 s')
     expect(formatDuration(null)).toBe('—')
+  })
+})
+
+describe('formatUsd', () => {
+  it('keeps cents', () => {
+    expect(formatUsd(18.5)).toBe('$18.50')
+    expect(formatUsd(0.5)).toBe('$0.50')
+    expect(formatUsd(1234)).toBe('$1,234.00')
   })
 })

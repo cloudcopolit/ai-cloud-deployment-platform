@@ -78,26 +78,32 @@ export function Notice({
   )
 }
 
-/** Labels capability honesty everywhere in the UI (REAL / SIMULATED / MOCKED-ONLY). */
-export function CapabilityBadge({ level }: { level: 'REAL' | 'SIMULATED' | 'MOCKED-ONLY' }) {
-  const style =
-    level === 'REAL'
-      ? 'border-success/40 text-success'
-      : level === 'SIMULATED'
-        ? 'border-warning/50 text-warning'
-        : 'border-destructive/40 text-destructive'
+export type CapabilityLevel = 'REAL' | 'SIMULATED' | 'MOCKED-ONLY' | 'MISSING'
+
+const CAPABILITY: Record<CapabilityLevel, { text: string; style: string; title: string }> = {
+  REAL: { text: 'REAL', style: 'border-success/40 text-success', title: 'Runs against the real service' },
+  SIMULATED: {
+    text: 'SIMULATED',
+    style: 'border-warning/50 text-warning',
+    title: 'Runs against a stand-in (a template, LocalStack or canned data), not the real thing'
+  },
+  'MOCKED-ONLY': {
+    text: 'MOCKED-ONLY',
+    style: 'border-destructive/40 text-destructive',
+    title: 'No real backend configured; shown with a fake'
+  },
+  MISSING: { text: 'NOT BUILT', style: 'border-border-strong text-muted-foreground', title: 'Designed, not built yet' }
+}
+
+/** Labels capability honesty everywhere in the UI (REAL / SIMULATED / MOCKED-ONLY / not built). */
+export function CapabilityBadge({ level }: { level: CapabilityLevel }) {
+  const c = CAPABILITY[level]
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[11px] font-medium ${style}`}
-      title={
-        level === 'REAL'
-          ? 'Runs against the real service'
-          : level === 'SIMULATED'
-            ? 'Runs against a stand-in (e.g. LocalStack) — not real AWS'
-            : 'No real backend configured; shown with a fake'
-      }
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[11px] font-medium ${c.style}`}
+      title={c.title}
     >
-      {level}
+      {c.text}
     </span>
   )
 }

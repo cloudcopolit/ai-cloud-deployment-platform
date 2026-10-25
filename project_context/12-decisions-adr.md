@@ -33,7 +33,7 @@
 ---
 
 ## ADR-001 · Modular monolith — Accepted
-**Context.** Small team, graduation timeline, one database.
+**Context.** Small team, short timeline, one database.
 **Decision.** One FastAPI app, feature modules with `router → service → models` layering; modules call each other only through services.
 **Consequences.** Simple deploy and transactions. Boundaries must be policed (import rules in `03` §1). A module can later be extracted because it already owns its tables.
 

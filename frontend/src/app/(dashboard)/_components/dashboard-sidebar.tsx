@@ -1,14 +1,13 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { FolderGit2, LayoutDashboard } from 'lucide-react'
 
+import { SpriteIcon } from '@/components/brand/icons'
+import { Logo } from '@/components/brand/logo'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { Project, Team } from '@/lib/api/schemas'
 import type { User } from '@/lib/validations/auth'
-import logoIcon from '/public/logos/logo-icon.svg'
 import { LogoutButton } from './logout-button'
 
 interface DashboardSidebarProps {
@@ -30,27 +29,36 @@ export function DashboardSidebar({ user, teams, projects }: DashboardSidebarProp
   const link = (href: string, active: boolean) =>
     `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${
       active
-        ? 'bg-primary/10 font-medium text-primary'
+        ? 'bg-primary/10 font-medium text-primary shadow-[inset_2px_0_0_var(--primary)]'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
     }`
 
   return (
     <aside className="hidden min-h-svh w-64 shrink-0 flex-col justify-between border-r bg-sidebar md:flex">
       <div className="space-y-6 p-4">
-        <Link href="/dashboard" className="flex items-center gap-2.5 px-2 py-1">
-          <Image src={logoIcon} alt="" className="size-8" />
-          <span className="text-base font-semibold tracking-tight">CloudPilot</span>
+        <Link href="/dashboard" className="block px-2 py-1" aria-label="CloudPilot overview">
+          <Logo className="h-7" />
         </Link>
 
         <nav aria-label="Main" className="space-y-5">
+          <div className="space-y-1">
           <Link
             href="/dashboard"
             className={link('/dashboard', pathname === '/dashboard')}
             aria-current={pathname === '/dashboard' ? 'page' : undefined}
           >
-            <LayoutDashboard className="size-4" aria-hidden />
+            <SpriteIcon name="ui-home" className="size-4" />
             Overview
           </Link>
+          <Link
+            href="/agents"
+            className={link('/agents', pathname === '/agents')}
+            aria-current={pathname === '/agents' ? 'page' : undefined}
+          >
+            <SpriteIcon name="ui-bot" className="size-4" />
+            Agents
+          </Link>
+          </div>
 
           {teams.map((team) => {
             const teamProjects = projects.filter((p) => p.team_id === team.id)
@@ -73,7 +81,7 @@ export function DashboardSidebar({ user, teams, projects }: DashboardSidebarProp
                         className={link(href, active)}
                         aria-current={active ? 'page' : undefined}
                       >
-                        <FolderGit2 className="size-4 shrink-0" aria-hidden />
+                        <SpriteIcon name="ui-folder" className="size-4" />
                         <span className="truncate">{project.name}</span>
                       </Link>
                     )

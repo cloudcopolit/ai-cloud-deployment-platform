@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { FolderGit2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+
+import { AgentPortrait } from '@/components/agents/agent-avatar'
+import { SpriteIcon } from '@/components/brand/icons'
+import { AGENT_ORDER, AGENTS } from '@/lib/agents'
 
 import { PageHeader } from '@/components/app/page-header'
 import { EmptyState, ErrorState, Notice } from '@/components/app/states'
@@ -61,9 +65,45 @@ async function Projects() {
   if (!teams.ok) return <ErrorState failure={teams} />
   if (!projects.ok) return <ErrorState failure={projects} />
 
+  const repositories = projects.data.reduce((n, p) => n + p.repository_count, 0)
+
   return (
     <div className="space-y-8">
-      <section aria-labelledby="new-project" className="space-y-3 rounded-xl border p-4">
+      <section className="dark relative overflow-hidden rounded-2xl bg-brand-navy p-6 text-foreground sm:p-8">
+        <div aria-hidden className="bg-grid absolute inset-0 opacity-30" />
+        <div aria-hidden className="absolute -right-24 -top-24 size-80 rounded-full bg-brand-blue/30 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-6">
+          <div className="max-w-xl space-y-2">
+            <p className="font-display text-2xl font-semibold">Welcome back.</p>
+            <p className="text-sm text-muted-foreground">
+              Open a project, connect a repository and start an analysis. You can watch every agent work and stop it
+              at any time.
+            </p>
+            <div className="flex items-center gap-2 pt-2">
+              {AGENT_ORDER.map((key) => (
+                <AgentPortrait key={key} agent={AGENTS[key]} size="sm" />
+              ))}
+              <Link href="/agents" className="ml-1 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                Meet the agents <ArrowRight className="size-3.5" aria-hidden />
+              </Link>
+            </div>
+          </div>
+          <dl className="grid grid-cols-3 gap-6 text-center">
+            {[
+              ['Teams', teams.data.length],
+              ['Projects', projects.data.length],
+              ['Repositories', repositories]
+            ].map(([label, value]) => (
+              <div key={label} className="flex flex-col-reverse">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="font-display text-3xl font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      <section aria-labelledby="new-project" className="space-y-3 rounded-2xl border bg-card p-4 sm:p-5">
         <h2 id="new-project" className="text-sm font-medium">
           New project
         </h2>
@@ -91,11 +131,17 @@ async function Projects() {
                   <li key={p.id}>
                     <Link
                       href={`/projects/${p.id}`}
-                      className="block h-full rounded-xl border p-4 hover:border-primary/60 hover:bg-muted/40"
+                      className="group block h-full rounded-2xl border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md"
                     >
-                      <span className="flex items-center gap-2 font-medium">
-                        <FolderGit2 className="size-4 text-muted-foreground" aria-hidden />
+                      <span className="flex items-center gap-2.5 font-medium">
+                        <span className="bg-brand-gradient grid size-8 place-items-center rounded-lg text-white">
+                          <SpriteIcon name="ui-folder" className="size-4" />
+                        </span>
                         {p.name}
+                        <ArrowRight
+                          className="ml-auto size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100"
+                          aria-hidden
+                        />
                       </span>
                       {p.description ? (
                         <span className="mt-1 line-clamp-2 block text-sm text-muted-foreground">

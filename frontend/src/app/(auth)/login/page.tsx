@@ -1,9 +1,10 @@
-import Image from 'next/image'
+import Link from 'next/link'
 import { Suspense } from 'react'
 import { connection } from 'next/server'
-import { GitBranch } from 'lucide-react'
 
-import logo from '/public/logos/logo-icon.svg'
+import { TechLogo } from '@/components/brand/icons'
+import { Logo } from '@/components/brand/logo'
+import { Pipeline } from '@/components/brand/pipeline'
 import { DevLogin } from './_components/dev-login'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -16,50 +17,43 @@ const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'You declined the GitHub authorization.'
 }
 
-/* What the product does today, stated plainly. Capability status lives in WORKLOG/HANDOFF. */
-const STEPS = [
-  'Connect a GitHub repository',
-  'Analyze it: languages, services, dependencies, risks',
-  'Review a proposed AWS architecture with cost',
-  'Approve a Terraform plan before anything changes in AWS'
-]
-
 export default function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
-      <aside className="hidden flex-col justify-between border-r bg-muted/40 p-10 lg:flex">
-        <div className="flex items-center gap-2.5">
-          <Image src={logo} alt="" className="size-9" />
-          <span className="text-lg font-semibold tracking-tight">CloudPilot</span>
+    <div className="grid min-h-svh lg:grid-cols-[1.15fr_1fr]">
+      {/* brand panel: `dark` keeps its text on the checked dark-theme tokens in either theme */}
+      <aside className="dark relative hidden overflow-hidden bg-brand-navy p-10 text-foreground lg:flex lg:flex-col lg:justify-between">
+        <div aria-hidden className="bg-grid absolute inset-0 opacity-30" />
+        <div aria-hidden className="absolute -left-32 -top-32 size-[32rem] rounded-full bg-brand-blue/30 blur-3xl" />
+        <div aria-hidden className="absolute -bottom-40 -right-20 size-[26rem] rounded-full bg-brand-teal/20 blur-3xl" />
+        <Link href="/" className="relative w-fit" aria-label="CloudPilot home">
+          <Logo surface="dark" className="h-9" priority />
+        </Link>
+        <div className="relative max-w-2xl space-y-8">
+          <div className="space-y-4">
+            <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight">
+              From a GitHub repository to <span className="text-brand-gradient">a reviewed AWS deployment</span>.
+            </h1>
+            <p className="text-muted-foreground">
+              AI agents analyze and propose. Only a person with the ADMIN or OWNER role can approve a change to your
+              AWS account.
+            </p>
+          </div>
+          <Pipeline showLevels={false} className="lg:grid-cols-3 xl:grid-cols-6" />
         </div>
-        <div className="max-w-md space-y-5">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            From a GitHub repository to a reviewed AWS deployment.
-          </h1>
-          <ol className="space-y-2 text-muted-foreground">
-            {STEPS.map((step, i) => (
-              <li key={step} className="flex gap-3">
-                <span className="font-mono text-primary">{i + 1}.</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-          <p className="text-sm text-muted-foreground">
-            AI analyzes and proposes. Only a person with the ADMIN or OWNER role can approve a change
-            to your AWS account.
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">Graduation project · not production-ready</p>
+        <p className="relative text-xs text-muted-foreground">
+          Repository content is read as text and never executed.
+        </p>
       </aside>
 
       <main id="main" className="flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-6">
-          <div className="space-y-1 text-center">
-            <Image src={logo} alt="" className="mx-auto mb-3 size-10 lg:hidden" />
-            <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
+        <div className="w-full max-w-sm space-y-7">
+          <div className="space-y-2">
+            <Link href="/" className="mb-6 block w-fit lg:hidden" aria-label="CloudPilot home">
+              <Logo className="h-8" priority />
+            </Link>
+            <h2 className="font-display text-2xl font-semibold tracking-tight">Sign in to CloudPilot</h2>
             <p className="text-sm text-muted-foreground">
-              GitHub sign-in shares your public profile and email only. Repository access is
-              granted separately.
+              GitHub sign-in shares your public profile and email only. Repository access is granted separately.
             </p>
           </div>
           <Suspense fallback={null}>
@@ -67,14 +61,17 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<{ er
           </Suspense>
           <a
             href={`${API_URL}/auth/github/login`}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl bg-foreground px-4 text-sm font-medium text-background shadow-sm hover:bg-foreground/90"
           >
-            <GitBranch className="size-4" aria-hidden />
+            <TechLogo name="github" label="" className="size-5" />
             Continue with GitHub
           </a>
           <Suspense fallback={null}>
             <DevLoginGate />
           </Suspense>
+          <p className="text-xs text-muted-foreground">
+            New here? <Link href="/" className="text-primary underline-offset-4 hover:underline">See how CloudPilot works</Link>.
+          </p>
         </div>
       </main>
     </div>

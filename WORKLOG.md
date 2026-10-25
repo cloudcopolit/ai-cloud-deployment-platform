@@ -12,6 +12,9 @@
 - Done: **S0** (`e1b64fc`), **S1** GitHub ingestion (`dc6a92b`), **S2** jobs + LangGraph orchestrator +
   real deterministic analysis (`d9bf873`, `5be4d6a`) + live activity UI + E2E, **S3** LLM gateway
   (MOCKED-ONLY until keys).
+- Session 3 (2026-10-26): product UI and brand identity (landing page, brand sign-in, Agents page,
+  agent avatars with popovers, Architect hand-off, AWS-icon architecture diagram). The diagram shows
+  the **prototype** architect's output, labelled SIMULATED until S4.
 - Next: **S4 architecture** (price table from the AWS Price List via `scripts/refresh_aws_prices.py`,
   pattern catalog, versions, AWS-icon diagram), then S5 AWS/deploy, S6 frontend polish, S7.
 - Blocked on the owner (see §5): LLM API keys, AWS sandbox account id, GitHub App installation /
@@ -123,6 +126,7 @@ Every slice ends with: ruff + mypy + pytest (+migrations) + frontend lint/typech
 | AWS sandbox account id (named by owner) | real STS + real deploy | LocalStack only |
 | Read & accept AWS Architecture Icons terms | shipping the icons | icons used in dev; flagged in HANDOFF |
 | Rotate the leaked OpenRouter key; approve (or not) a history rewrite of `feat/code-architect-v0-3` | secret-scan clean | documented |
+| License texts named by `frontend/public/icons/NOTICE.md` (`octicons-MIT.txt`, `simple-icons-CC0.md`, `material-design-icons.txt`) | shipping the owner's icon kit | files referenced but missing |
 | Proposals needing approval (no new infra without ADR + approval) | – | see §7 |
 
 ## 6. Session log
@@ -193,10 +197,48 @@ Every slice ends with: ruff + mypy + pytest (+migrations) + frontend lint/typech
   - Caveat: the same person labelled the repos and fixed the rules, so these scores overfit this
     set. A held-out set is needed before quoting accuracy.
 
+### 2026-10-26 · session 3: product UI and brand identity
+- The owner asked for a product-grade UI with the CloudPilot identity and visible agents, and for the
+  "graduation project" wording to go. Removed from the sign-in page, `backend/README.md` and
+  `project_context/` (README, 02, 09, 11, 12, 13: "first release"/"short timeline" wording; no
+  scope change). "Production ready" is still never claimed (owner rule).
+- Owner brand kit: `public/logos/*` (wordmark, mark) used as is. The icon kit's README documents
+  `/icons/...` paths and folders that were not copied (only `preview.html` held them inline), so
+  `sprite.svg`, `index.json`, README/NOTICE moved to `public/icons/`, and `agents/` (8), `status/`
+  (6), `brands/` (66), `aws/` (36), `cloud/` (20) were recovered byte-for-byte from the preview.
+  `preview.html` (454 KB) moved to `frontend/design/icons/` so it is not served. Next.js boilerplate
+  SVGs and `favicon.ico` removed; `app/icon.svg` and `app/apple-icon.png` are the brand mark.
+- Found and fixed: sprite icons rendered as filled shapes, because the stroke style lives on the
+  sprite's root `<svg>` and `<use>` of an external file does not inherit it (`SpriteIcon` sets it).
+- ADR-020 implemented: `frontend/scripts/build-aws-icon-manifest.mjs` copies 29 official icons
+  (48 px service icons, 32 px group frames, Users/Internet) unmodified into `public/aws-icons/`
+  (152 KB, lowercase names) and writes `src/lib/aws-icons/manifest.ts`; `public/aws-icons/NOTICE.md`.
+  A vitest checks every manifest path exists with the exact case. Official icons always sit on the
+  light `--icon-surface` tile (never recolored), in both themes.
+- Fonts: Inter (UI) + Poppins (display, matches the wordmark) through `next/font/google`, which
+  self-hosts them at build time (the build needs network, as `pnpm install` already does).
+- Navy brand panels carry the `dark` class, so text and badges on them use the contrast-checked dark
+  tokens in either theme.
+- New: `/` landing page (pipeline, agents, detected stack, safety, capability status table); sign-in
+  with brand panel; `/agents` (crew + real `GET /llm/providers` table); agent avatars with keyboard-
+  accessible popovers in the live activity view; Architect hand-off card on a successful analysis
+  (`POST /analyses/{id}/architectures`); `/projects/{p}/architectures/{a}/versions/{n}` with the
+  diagram (official icons, AWS Cloud and VPC frames, links only where the plan states `depends_on`,
+  users → entry component), component popovers (rationale, config, cost line), the components table
+  as the accessible alternative, a cost card, assumptions, security, risks, and the locked AWS step.
+- Evidence: `pnpm lint` clean, `pnpm typecheck` clean, `pnpm test` 32 passed (4 files),
+  `pnpm build` OK; `scripts/e2e.sh` **15 passed** (new: architecture step in the journey, landing
+  and sign-in axe in light and dark, Agents page, landing at 375 px without horizontal scroll); axe
+  0 serious/critical on every audited page. Screenshots checked by eye in both themes.
+- Observed, not investigated yet: on the dev stack the header shows "GitHub: GitHub App · 60/60 req
+  left", i.e. an App installation is reported while the rate limit is the anonymous one.
+
 ## 7. Proposals awaiting owner approval (not implemented)
 
 _(none yet)_
 
 ## 8. Icon coverage log (ArchitecturePlan component types without an official icon)
 
-_(filled by the manifest script)_
+- Every current `ComponentType` has an official icon except `other`, which is drawn as a neutral box
+  with its id as the label (`components/architecture/catalog.ts`). S4 types already mapped: MSK,
+  Amazon MQ, OpenSearch, DocumentDB, DynamoDB, API Gateway, ACM, WAF.

@@ -14,7 +14,7 @@
 | **Q-6** | Where does the Terraform runner execute (ECS one-off task, CodeBuild, local container for demo)? | isolation, cost, demo simplicity | local sandbox container for demo; ECS task/CodeBuild for pilot | Backend/DevOps | before D6 |
 | **Q-7** | Which stacks are officially supported in the MVP? | defines `UNSUPPORTED_STACK`, fixtures, templates | Python (FastAPI/Django/Flask), Node (Express/Next.js), Dockerfile-based apps; others → BLOCKED with explanation | Team | before A2.3 |
 | **Q-8** | Deployment patterns for MVP (ECS Fargate + ALB + RDS only, or also Lambda/static S3+CloudFront)? | size of Architecture Agent and Terraform templates | start with 2: static site, container + RDS | Team | before A4.1 |
-| **Q-9** | Billing: real payments (Stripe) or plans only as limits? | scope | limits only for the graduation scope | Product | before B1.4 |
+| **Q-9** | Billing: real payments (Stripe) or plans only as limits? | scope | limits only for the first release | Product | before B1.4 |
 | **Q-10** | Monitoring stack for Phase 3: Prometheus, CloudWatch, or both? | what runs in the customer account | CloudWatch first (no extra infra in customer account) | Team | Phase 3 |
 | **Q-11** | Does a push to the deployment branch trigger an analysis automatically? Auto-deploy ever? | cost, safety | analysis on push optional per project; **no auto-deploy** without explicit opt-in + approval | Product | B2.3 |
 | **Q-12** | Region(s) and data residency for CloudPilot itself and for default customer deployments | latency, compliance | one region; customer region chosen per AWS account | Team | before D1 |

@@ -40,3 +40,10 @@ export function formatDuration(ms: number | null | undefined): string {
   const m = Math.floor(s / 60)
   return `${m} min ${Math.round(s % 60)} s`
 }
+
+const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
+
+/** $18.50 — always two decimals, so small line items are not rounded away. */
+export function formatUsd(amount: number): string {
+  return USD.format(amount)
+}

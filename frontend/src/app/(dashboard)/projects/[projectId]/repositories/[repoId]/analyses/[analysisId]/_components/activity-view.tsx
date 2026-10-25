@@ -1,26 +1,12 @@
-import { Bot, Cpu, Workflow } from 'lucide-react'
+'use client'
 
+import { Bot } from 'lucide-react'
+
+import { AgentAvatar } from '@/components/agents/agent-avatar'
 import { StatusBadge } from '@/components/app/status-badge'
+import { agentFor } from '@/lib/agents'
 import type { AgentRun, AgentTask } from '@/lib/api/schemas'
 import { formatDuration } from '@/lib/format'
-
-const AGENT_COPY: Record<string, { title: string; role: string; Icon: typeof Bot }> = {
-  ORCHESTRATOR: {
-    title: 'Orchestrator',
-    role: 'Decides what runs next, validates every result, enforces time limits.',
-    Icon: Workflow
-  },
-  ANALYSIS: {
-    title: 'Analysis agent',
-    role: 'Reads the repository as text and detects services, dependencies and risks.',
-    Icon: Cpu
-  },
-  ARCHITECTURE: {
-    title: 'Architecture agent',
-    role: 'Proposes an AWS architecture with cost, assumptions and risks.',
-    Icon: Bot
-  }
-}
 
 const TASK_LABEL: Record<string, string> = {
   read_repository: 'Read the repository (listed files, read relevant ones)',
@@ -95,19 +81,43 @@ export function ActivityView({ runs }: { runs: AgentRun[] }) {
   return (
     <ol className="space-y-3">
       {runs.map((run) => {
-        const copy = AGENT_COPY[run.agent_type] ?? { title: run.agent_type, role: '', Icon: Bot }
+        const agent = agentFor(run.agent_type)
         const attempt = typeof run.input?.attempt === 'number' && run.input.attempt > 1 ? ` (attempt ${run.input.attempt})` : ''
+        const working = run.status === 'RUNNING'
         return (
-          <li key={run.id} className="rounded-xl border">
+          <li key={run.id} className={`rounded-xl border bg-card ${working ? 'border-primary/50 shadow-sm' : ''}`}>
             <div className="flex flex-wrap items-start justify-between gap-3 border-b p-3">
-              <div className="flex min-w-0 items-start gap-2.5">
-                <copy.Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+              <div className="flex min-w-0 items-start gap-3">
+                {agent ? (
+                  <AgentAvatar
+                    agent={agent}
+                    working={working}
+                    details={
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t pt-3 text-xs">
+                        <dt className="text-muted-foreground">This run</dt>
+                        <dd>
+                          <StatusBadge status={run.status} compact />
+                        </dd>
+                        <dt className="text-muted-foreground">Model</dt>
+                        <dd>
+                          <ModelLine run={run} />
+                        </dd>
+                        <dt className="text-muted-foreground">Duration</dt>
+                        <dd className="font-mono">{formatDuration(run.duration_ms)}</dd>
+                        <dt className="text-muted-foreground">Tasks</dt>
+                        <dd className="font-mono">{run.tasks.length}</dd>
+                      </dl>
+                    }
+                  />
+                ) : (
+                  <Bot className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+                )}
                 <div className="min-w-0">
                   <p className="font-medium">
-                    {copy.title}
+                    {agent?.name ?? run.agent_type}
                     {attempt}
                   </p>
-                  <p className="text-xs text-muted-foreground">{copy.role}</p>
+                  <p className="text-xs text-muted-foreground">{agent?.tagline}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     <ModelLine run={run} />
                   </p>

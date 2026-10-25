@@ -5,7 +5,7 @@ import { CapabilityBadge, ErrorState } from '@/components/app/states'
 import { Stepper } from '@/components/app/stepper'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiGet } from '@/lib/api/server'
-import { ActivitySchema, AnalysisJobSchema, ProjectSchema, RepositorySchema } from '@/lib/api/schemas'
+import { ActivitySchema, AnalysisJobSchema, ArchitectureSchema, ProjectSchema, RepositorySchema } from '@/lib/api/schemas'
 import { AnalysisLive } from './_components/analysis-live'
 
 export const metadata = { title: 'Analysis' }
@@ -22,17 +22,27 @@ export default function AnalysisPage({ params }: { params: Params }) {
 
 async function AnalysisContent({ params }: { params: Params }) {
   const { projectId, repoId, analysisId } = await params
-  const [job, activity, repo, project] = await Promise.all([
+  const [job, activity, repo, project, architectures] = await Promise.all([
     apiGet(`/analyses/${analysisId}`, AnalysisJobSchema),
     apiGet(`/analyses/${analysisId}/activity`, ActivitySchema),
     apiGet(`/repositories/${repoId}`, RepositorySchema),
-    apiGet(`/projects/${projectId}`, ProjectSchema)
+    apiGet(`/projects/${projectId}`, ProjectSchema),
+    apiGet(`/projects/${projectId}/architectures`, ArchitectureSchema.array())
   ])
   if (!job.ok) return <ErrorState failure={job} />
   if (!activity.ok) return <ErrorState failure={activity} />
   if (!repo.ok) return <ErrorState failure={repo} />
   const basePath = `/projects/${projectId}/repositories/${repoId}`
   const analysisState = !job.data.terminal ? 'current' : job.data.status === 'SUCCESS' ? 'done' : 'current'
+  // the newest proposal made from this analysis, if any
+  const latest = architectures.ok
+    ? architectures.data
+        .map((a) => a.latest_version)
+        .find((v) => v !== null && v.source_analysis_id === analysisId)
+    : undefined
+  const architectureHref = latest
+    ? `/projects/${projectId}/architectures/${latest.architecture_id}/versions/${latest.version_number}`
+    : null
 
   return (
     <>
@@ -55,12 +65,20 @@ async function AnalysisContent({ params }: { params: Params }) {
         steps={[
           { id: 'source', label: 'Source', state: 'done', href: basePath },
           { id: 'analysis', label: 'Analysis', state: analysisState },
-          { id: 'architecture', label: 'Architecture', state: 'locked', reason: 'Being built (WORKLOG S4)' },
+          job.data.status === 'SUCCESS'
+            ? { id: 'architecture', label: 'Architecture', state: 'todo', href: architectureHref ?? undefined }
+            : { id: 'architecture', label: 'Architecture', state: 'locked', reason: 'Needs a successful analysis' },
           { id: 'aws', label: 'AWS account', state: 'locked', reason: 'Needs an architecture' },
           { id: 'deploy', label: 'Plan & deploy', state: 'locked', reason: 'Needs approval' }
         ]}
       />
-      <AnalysisLive initialJob={job.data} initialActivity={activity.data} basePath={basePath} />
+      <AnalysisLive
+        initialJob={job.data}
+        initialActivity={activity.data}
+        basePath={basePath}
+        projectId={projectId}
+        architectureHref={architectureHref}
+      />
     </>
   )
 }

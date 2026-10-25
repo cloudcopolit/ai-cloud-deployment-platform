@@ -238,3 +238,81 @@ export const ActivitySchema = z.object({
   runs: z.array(RunSchema)
 })
 export type Activity = z.infer<typeof ActivitySchema>
+
+/* ── Architecture (ArchitecturePlan contract, ai/src/cloudpilot_ai/contracts.py) ── */
+
+export const PlanComponentSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  serves_service: z.string().nullable().optional(),
+  config: z.record(z.string(), z.unknown()).default({}),
+  depends_on: z.array(z.string()).default([]),
+  rationale: z.string()
+})
+export type PlanComponent = z.infer<typeof PlanComponentSchema>
+
+const CostLineSchema = z.object({ component_id: z.string(), monthly_usd: z.number(), basis: z.string() })
+
+export const ArchitecturePlanSchema = z.object({
+  schema_version: z.string(),
+  source_analysis_id: z.string(),
+  region: z.string(),
+  components: z.array(PlanComponentSchema),
+  assumptions: z
+    .array(z.object({ statement: z.string(), impact: z.string(), confirmed_by_user: z.boolean().default(false) }))
+    .default([]),
+  security: z.object({
+    network_isolation: z.string(),
+    encryption_at_rest: z.boolean(),
+    encryption_in_transit: z.boolean(),
+    secrets_strategy: z.string(),
+    least_privilege_notes: z.string().nullable().optional(),
+    public_endpoints: z.array(z.string()).default([])
+  }),
+  cost: z.object({
+    currency: z.string(),
+    monthly_total: z.number(),
+    lines: z.array(CostLineSchema).default([]),
+    pricing_as_of: z.string(),
+    confidence: z.number()
+  }),
+  risks: z.array(FindingSchema).default([])
+})
+export type ArchitecturePlan = z.infer<typeof ArchitecturePlanSchema>
+
+export const ArchitectureVersionSchema = z.object({
+  id: z.string(),
+  architecture_id: z.string(),
+  version_number: z.number(),
+  source_analysis_id: z.string().nullable(),
+  status: z.string(),
+  architecture_data: z.record(z.string(), z.unknown()),
+  created_by: z.string().nullable(),
+  created_at: z.string(),
+  monthly_cost: z.number()
+})
+export type ArchitectureVersion = z.infer<typeof ArchitectureVersionSchema>
+
+export const ArchitectureSchema = z.object({
+  id: z.string(),
+  project_id: z.string(),
+  name: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  versions_count: z.number(),
+  latest_version: ArchitectureVersionSchema.nullable()
+})
+export type Architecture = z.infer<typeof ArchitectureSchema>
+
+export const LlmProviderSchema = z.object({
+  provider: z.string(),
+  mode: z.enum(['REAL', 'MOCKED-ONLY']),
+  configured: z.boolean(),
+  reachable: z.boolean().nullable(),
+  models_listed: z.number().nullable(),
+  chosen_model: z.string().nullable(),
+  latency_ms: z.number().nullable(),
+  error: z.string().nullable()
+})
+export type LlmProvider = z.infer<typeof LlmProviderSchema>

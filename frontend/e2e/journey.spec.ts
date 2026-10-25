@@ -25,8 +25,8 @@ test('connect a repository, pick a commit, watch the analysis live, read the rep
   await expect(page.getByText('Analysis finished.')).toBeVisible({ timeout: 60_000 })
 
   // the live view shows which agents ran and every step
-  await expect(page.getByText('Orchestrator', { exact: true })).toBeVisible()
-  await expect(page.getByText('Analysis agent', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('Orchestrator', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('Analysis agent', { exact: true })).toBeVisible()
   await expect(page.getByText('Scan for committed secrets (path and kind only)')).toBeVisible()
   await expect(page.getByText('No language model used (deterministic)').first()).toBeVisible()
 
@@ -36,6 +36,24 @@ test('connect a repository, pick a commit, watch the analysis live, read the rep
   await expect(services).toContainText('/health')
   await expect(page.getByText('CloudPilot can deploy this automatically.')).toBeVisible()
   await expectAccessible(page, 'analysis')
+
+  // hand the report to the Architect agent; its proposal is drawn with official AWS icons
+  await page.getByRole('button', { name: 'Propose an architecture' }).click()
+  await expect(page.getByRole('heading', { name: /Architecture · version \d+/ })).toBeVisible({ timeout: 30_000 })
+  const diagram = page.getByRole('figure', { name: 'Architecture diagram' })
+  await expect(diagram.getByRole('button', { name: /Application Load Balancer/ })).toBeVisible()
+  await expect(diagram.locator('img[src="/aws-icons/ecs_service.svg"]')).toBeVisible()
+  // the accessible alternative lists every component
+  await expect(page.getByRole('table', { name: /Every component/ })).toContainText('Amazon Elastic Container Service')
+  // honest labelling of the prototype
+  await expect(page.getByText('Prototype architect: same template for every repository')).toBeVisible()
+  await diagram.getByRole('button', { name: /Application Load Balancer/ }).click()
+  await expect(page.getByText('Why the Architect chose it')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'About the Architect agent' }).first().click()
+  await expect(page.getByRole('dialog')).toContainText('Writes Terraform')
+  await page.keyboard.press('Escape')
+  await expectAccessible(page, 'architecture')
 })
 
 test('a blocked analysis asks a question and the answer unblocks it', async ({ page }) => {

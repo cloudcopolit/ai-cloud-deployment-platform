@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 
 import { ThemeToggle } from '@/components/app/theme'
+import { Logo } from '@/components/brand/logo'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiGet } from '@/lib/api/server'
 import { GitHubAccessSchema, ProjectSchema, TeamSchema } from '@/lib/api/schemas'
@@ -18,15 +19,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-end gap-3 border-b bg-background/90 px-4 backdrop-blur sm:px-6">
           {/* the sidebar is hidden below md; the overview page lists every project */}
-          <Link href="/dashboard" className="mr-auto font-semibold md:hidden">
-            CloudPilot
+          <Link href="/dashboard" className="mr-auto md:hidden" aria-label="CloudPilot overview">
+            <Logo className="h-6" />
           </Link>
           <Suspense fallback={<Skeleton className="h-6 w-48" />}>
             <GitHubStatus />
           </Suspense>
           <ThemeToggle />
         </header>
-        <main id="main" className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+        <main id="main" className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

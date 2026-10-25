@@ -14,9 +14,16 @@ import { ActivitySchema, AnalysisJobSchema, type Activity, type AnalysisJob } fr
 import { formatDuration, formatRelative, shortSha } from '@/lib/format'
 import { usePoll } from '@/lib/use-poll'
 import { ActivityView } from './activity-view'
+import { ArchitectHandoff } from './architect-handoff'
 import { ReportView } from './report-view'
 
-type Props = { initialJob: AnalysisJob; initialActivity: Activity; basePath: string }
+type Props = {
+  initialJob: AnalysisJob
+  initialActivity: Activity
+  basePath: string
+  projectId: string
+  architectureHref: string | null
+}
 
 const STATUS_SENTENCE: Record<string, string> = {
   QUEUED: 'Waiting for a worker.',
@@ -78,7 +85,7 @@ function AnswersForm({ job, basePath }: { job: AnalysisJob; basePath: string }) 
   )
 }
 
-export function AnalysisLive({ initialJob, initialActivity, basePath }: Props) {
+export function AnalysisLive({ initialJob, initialActivity, basePath, projectId, architectureHref }: Props) {
   const [job, setJob] = useState(initialJob)
   const [activity, setActivity] = useState(initialActivity)
   const [failure, setFailure] = useState<ApiFailure | null>(null)
@@ -154,6 +161,10 @@ export function AnalysisLive({ initialJob, initialActivity, basePath }: Props) {
       </section>
 
       {job.status === 'BLOCKED' ? <AnswersForm job={job} basePath={basePath} /> : null}
+
+      {job.status === 'SUCCESS' ? (
+        <ArchitectHandoff analysisId={job.id} projectId={projectId} existingHref={architectureHref} />
+      ) : null}
 
       {job.report ? (
         <section aria-labelledby="report" className="space-y-3">
