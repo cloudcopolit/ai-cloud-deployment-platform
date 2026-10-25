@@ -1,75 +1,197 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
-from fnmatch import fnmatch
 from pathlib import PurePosixPath
 
 from AI.application.ports.repository_reader import RepositoryReader
 from AI.domain.analysis.models import RepositoryRef
-from AI.domain.aws_detection.models import AwsConfigFinding, AwsConfigKind, AwsConfigStatus
+from AI.domain.aws_detection.models import AwsConfigKind, AwsConfigStatus
+from AI.domain.shared.errors import RepositoryAccessError
 
-MAX_CHARS_PER_FILE = 200_000
+# Bounds keep GitHub API usage and scan time predictable.
+MAX_FILES_SCANNED = 150
+MAX_CHARS_PER_FILE = 60_000
+DEFAULT_CONCURRENCY = 8
 
-SCANNABLE_SUFFIXES = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".java", ".kt", ".cs", ".rb", ".php",
-    ".yml", ".yaml", ".json", ".toml", ".ini", ".cfg", ".tf", ".sh", ".env",
-}
-SCANNABLE_NAMES = {"Dockerfile", ".env", "cdk.json", "serverless.yml"}
+_SKIP_DIR_PARTS = frozenset(
+    {
+        "node_modules",
+        "vendor",
+        ".git",
+        "dist",
+        "build",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".next",
+        "site-packages",
+    }
+)
+_SKIP_NAMES = frozenset(
+    {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Pipfile.lock", "go.sum"}
+)
+_SCAN_SUFFIXES = frozenset(
+    {
+        ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".json", ".yml", ".yaml",
+        ".toml", ".tf", ".txt", ".cfg", ".ini", ".sh", ".env", ".go", ".java", ".rb", ".php",
+    }
+)
+_PRIORITY_NAMES = frozenset(
+    {
+        "cdk.json", "serverless.yml", "serverless.yaml", "samconfig.toml", "samconfig.yaml",
+        "samconfig.yml", "template.yml", "template.yaml", "requirements.txt", "pyproject.toml",
+        "Pipfile", "package.json", "go.mod", "pom.xml", "build.gradle", "Gemfile", "composer.json",
+    }
+)
+_IAC_PATH_NAMES = frozenset(
+    {"cdk.json", "serverless.yml", "serverless.yaml", "samconfig.toml", "samconfig.yaml", "samconfig.yml"}
+)
 
-
-@dataclass(frozen=True)
-class _Rule:
-    kind: AwsConfigKind
-    detail: str
-    path_glob: str | None = None
-    content: re.Pattern[str] | None = None
-
-    def matches(self, filename: str, text: str) -> bool:
-        if self.path_glob is not None and not fnmatch(filename, self.path_glob):
-            return False
-        if self.content is not None and not self.content.search(text):
-            return False
-        return self.path_glob is not None or self.content is not None
-
-
-RULES: tuple[_Rule, ...] = (
-    _Rule(AwsConfigKind.IAC_TEMPLATE, "AWS CDK project", path_glob="cdk.json"),
-    _Rule(AwsConfigKind.IAC_TEMPLATE, "Serverless Framework config", path_glob="serverless.yml"),
-    _Rule(AwsConfigKind.IAC_TEMPLATE, "Terraform AWS provider", path_glob="*.tf",
-          content=re.compile(r'provider\s+"aws"')),
-    _Rule(AwsConfigKind.IAC_TEMPLATE, "SAM or CloudFormation template",
-          path_glob="*.y*ml", content=re.compile(r"AWSTemplateFormatVersion|Transform:\s*AWS::Serverless")),
-    _Rule(AwsConfigKind.SDK_CLIENT, "boto3 import",
-          content=re.compile(r"\bimport boto3\b|\bfrom boto3\b")),
-    _Rule(AwsConfigKind.SDK_CLIENT, "AWS JavaScript/TypeScript SDK import",
-          content=re.compile(r"@aws-sdk/|require\(['\"]aws-sdk['\"]\)")),
-    _Rule(AwsConfigKind.CREDENTIALS_REFERENCE, "AWS credentials referenced via environment or profile",
-          content=re.compile(r"AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_PROFILE")),
-    _Rule(AwsConfigKind.REGION_SETTING, "AWS region configured",
-          content=re.compile(r"AWS_REGION|AWS_DEFAULT_REGION|region_name\s*=")),
-    _Rule(AwsConfigKind.HARDCODED_CREDENTIALS, "Possible hardcoded AWS access key ID",
-          content=re.compile(r"\b(AKIA|ASIA)[0-9A-Z]{16}\b")),
+# --- Detection patterns. Only the *kind* and file path are kept, never matched text. ---
+_IAC_CONTENT = re.compile(
+    r"AWSTemplateFormatVersion|AWS::Serverless|AWS::[A-Z][A-Za-z0-9]+::[A-Z]"
+    r"|provider\s+\"aws\"|resource\s+\"aws_|aws-cdk-lib|\baws_cdk\b"
+)
+_SDK_CONTENT = re.compile(r"\b(?:boto3|botocore|aioboto3|aiobotocore)\b|@aws-sdk/|\baws-sdk\b")
+_CREDENTIAL_REF = re.compile(
+    r"\b(?:AWS_PROFILE|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)\b"
+)
+_REGION = re.compile(
+    r"\b(?:AWS_REGION|AWS_DEFAULT_REGION)\b"
+    r"|\bregion_name\s*="
+    r"|\bregion\s*[:=]\s*[\"']?[a-z]{2}(?:-[a-z]+)+-\d\b"
+    r"|\bRegion\s*:\s*[a-z]{2}(?:-[a-z]+)+-\d\b"
+)
+_ACCESS_KEY = re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")
+_SECRET_ASSIGN = re.compile(
+    r"(?i)aws_?secret_?access_?key[\"']?\s*[:=]\s*[\"']([A-Za-z0-9/+=]{40})[\"']"
 )
 
 
 def _is_scannable(path: str) -> bool:
     p = PurePosixPath(path)
-    return p.name in SCANNABLE_NAMES or p.suffix in SCANNABLE_SUFFIXES
+    if p.name in _SKIP_NAMES or any(part in _SKIP_DIR_PARTS for part in p.parts[:-1]):
+        return False
+    return (
+        p.suffix.lower() in _SCAN_SUFFIXES
+        or p.name.startswith(".env")
+        or p.name == "Procfile"
+        or p.name.startswith("Dockerfile")
+    )
+
+
+def _priority(path: str) -> int:
+    p = PurePosixPath(path)
+    if p.name in _PRIORITY_NAMES:
+        return 0
+    if p.name.startswith(("Dockerfile", ".env")) or ".github/workflows/" in path:
+        return 1
+    return 2 + len(p.parts)
+
+
+def _has_hardcoded_credentials(text: str) -> bool:
+    for match in _ACCESS_KEY.finditer(text):
+        if "EXAMPLE" not in match.group(0):
+            return True
+    for match in _SECRET_ASSIGN.finditer(text):
+        if "EXAMPLE" not in match.group(0):
+            return True
+    return False
+
+
+def classify_file(path: str, text: str) -> frozenset[AwsConfigKind]:
+    """Pure function: which AWS config kinds does this one file show?"""
+    kinds: set[AwsConfigKind] = set()
+    if PurePosixPath(path).name in _IAC_PATH_NAMES or _IAC_CONTENT.search(text):
+        kinds.add(AwsConfigKind.IAC_TEMPLATE)
+    if _SDK_CONTENT.search(text):
+        kinds.add(AwsConfigKind.SDK_CLIENT)
+    if _CREDENTIAL_REF.search(text):
+        kinds.add(AwsConfigKind.CREDENTIALS_REFERENCE)
+    if _REGION.search(text):
+        kinds.add(AwsConfigKind.REGION_SETTING)
+    if _has_hardcoded_credentials(text):
+        kinds.add(AwsConfigKind.HARDCODED_CREDENTIALS)
+    return frozenset(kinds)
+
+
+def _build_status(kinds: tuple[AwsConfigKind, ...]) -> AwsConfigStatus:
+    # ASSUMPTION: AwsConfigStatus takes the detected kinds as `kinds=`.
+    # This is the only line that touches its constructor; adjust here if yours differs.
+    return AwsConfigStatus(kinds=kinds)
+
+
+@dataclass(frozen=True)
+class AwsConfigScan:
+    """Immutable scan result. Holds paths only, never file content or secret values."""
+
+    status: AwsConfigStatus
+    findings: tuple[tuple[AwsConfigKind, tuple[str, ...]], ...] = ()
+    files_scanned: int = 0
+
+    def files_for(self, kind: AwsConfigKind) -> tuple[str, ...]:
+        for found_kind, files in self.findings:
+            if found_kind is kind:
+                return files
+        return ()
 
 
 class AwsConfigScanner:
-    def __init__(self, reader: RepositoryReader) -> None:
-        self._reader = reader
+    """Deterministic (no LLM) scan for AWS configuration signals at a pinned commit.
 
-    async def scan(self, repo: RepositoryRef, access_token: str) -> AwsConfigStatus:
-        findings: list[AwsConfigFinding] = []
-        for path in await self._reader.list_files(repo, access_token):
-            if not _is_scannable(path):
-                continue
-            text = (await self._reader.read_file(repo, path, access_token))[:MAX_CHARS_PER_FILE]
-            name = PurePosixPath(path).name
-            for rule in RULES:
-                if rule.matches(name, text):
-                    findings.append(AwsConfigFinding(kind=rule.kind, file=path, detail=rule.detail))
-        return AwsConfigStatus(findings=tuple(findings))
+    Results are memoised per RepositoryRef (repo + commit_sha) so the use case and the
+    agent can both ask without a second GitHub fetch.
+    """
+
+    def __init__(
+        self,
+        reader: RepositoryReader,
+        access_token: str = "",
+        *,
+        max_files: int = MAX_FILES_SCANNED,
+        concurrency: int = DEFAULT_CONCURRENCY,
+    ) -> None:
+        self._reader = reader
+        self._access_token = access_token
+        self._max_files = max_files
+        self._concurrency = max(1, concurrency)
+        self._cache: dict[RepositoryRef, AwsConfigScan] = {}
+
+    async def scan(self, repo: RepositoryRef) -> AwsConfigScan:
+        cached = self._cache.get(repo)
+        if cached is not None:
+            return cached
+
+        all_files = await self._reader.list_files(repo, self._access_token)
+        candidates = sorted(
+            (f for f in all_files if _is_scannable(f)),
+            key=lambda p: (_priority(p), p),
+        )[: self._max_files]
+
+        semaphore = asyncio.Semaphore(self._concurrency)
+
+        async def inspect(path: str) -> tuple[str, frozenset[AwsConfigKind]]:
+            async with semaphore:
+                try:
+                    text = await self._reader.read_file(repo, path, self._access_token)
+                except RepositoryAccessError:
+                    return path, frozenset()
+            return path, classify_file(path, text[:MAX_CHARS_PER_FILE])
+
+        results = await asyncio.gather(*(inspect(p) for p in candidates))
+
+        by_kind: dict[AwsConfigKind, list[str]] = {}
+        for path, kinds in results:
+            for kind in sorted(kinds, key=lambda k: k.value):
+                by_kind.setdefault(kind, []).append(path)
+
+        ordered_kinds = tuple(sorted(by_kind, key=lambda k: k.value))
+        scan = AwsConfigScan(
+            status=_build_status(ordered_kinds),
+            findings=tuple((k, tuple(by_kind[k])) for k in ordered_kinds),
+            files_scanned=len(candidates),
+        )
+        self._cache[repo] = scan
+        return scan
