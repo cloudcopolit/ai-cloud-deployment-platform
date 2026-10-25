@@ -15,10 +15,23 @@ from sqlalchemy.engine import make_url
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg://cloudpilot:cloudpilot@localhost:5432/cloudpilot_test",
-)
+
+def _default_test_db_url() -> str:
+    env_file = BACKEND_DIR / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("DATABASE_URL="):
+                val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                u = make_url(val)
+                db_name = u.database or "cloudpilot"
+                test_db = db_name if db_name.endswith("_test") else f"{db_name}_test"
+                return u.set(database=test_db).render_as_string(hide_password=False)
+    return "postgresql+psycopg://cloudpilot:cloudpilot@172.23.9.99:5432/cloudpilot_test"
+
+
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or _default_test_db_url()
+
 
 if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
     raise RuntimeError(

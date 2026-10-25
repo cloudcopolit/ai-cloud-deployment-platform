@@ -24,8 +24,16 @@ select = [
 [lint.per-file-ignores]
 # Tests use plain asserts and deliberately hard-coded, fake credentials.
 "**/tests/**" = ["S101", "S105", "S106"]
+# Auto-generated migrations can have long lines.
+"**/alembic/versions/**" = ["E501"]
 # CI helper scripts run `git` from PATH with fixed arguments by design.
 ".github/scripts/**" = ["S603", "S607"]
+# AI contracts contains self-check with asserts and type specifications
+"**/ai_contracts.py" = ["S101", "PT017", "UP046", "E501"]
+
+# Service files insert root to sys.path to resolve cross-package imports
+"**/modules/*/service.py" = ["E402"]
+
 
 [lint.isort]
 # Both the backend and the AI services use `app` as their top-level package.

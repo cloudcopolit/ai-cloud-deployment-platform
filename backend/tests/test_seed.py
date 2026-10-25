@@ -30,6 +30,15 @@ def test_seed_creates_reference_and_development_data(db_session: Session) -> Non
         "repositories": 1,
         "branches": 1,
         "commits": 3,
+        "repository_analyses": 0,
+        "services": 0,
+        "architectures": 0,
+        "architecture_versions": 0,
+        "aws_accounts": 0,
+        "deployments": 0,
+        "deployment_steps": 0,
+        "infrastructure_resources": 0,
+        "approvals": 0,
     }
     roles = db_session.scalars(select(TeamMember.role).order_by(TeamMember.role)).all()
     assert roles == ["ADMIN", "MEMBER", "OWNER"]

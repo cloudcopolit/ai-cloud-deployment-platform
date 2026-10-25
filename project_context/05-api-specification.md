@@ -45,16 +45,49 @@
 
 ## 2. Implemented ✅
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/health/db` | – | DB connectivity |
-| GET | `/auth/github/login` | – | start GitHub sign-in (**navigate**, don't `fetch`) |
-| GET | `/auth/github/callback` | – | GitHub returns here → sets cookie → redirect to `{FRONTEND_URL}/dashboard` (failure → `/login?error=github_failed`) |
-| GET | `/auth/me` | ✔ | current user (`id, github_user_id, name, email, avatar_url`) |
-| POST | `/auth/logout` | – | clear cookie (204) |
-| POST | `/auth/dev-login` | – | **dev only**; body `{"github_user_id":"1001"}` → `{access_token, token_type}` |
+| Method | Path | Auth | Role | Description |
+|---|---|---|:-:|---|
+| GET | `/health/db` | – | – | DB connectivity check |
+| GET | `/auth/github/login` | – | – | Start GitHub OAuth sign-in |
+| GET | `/auth/github/callback` | – | – | GitHub OAuth callback → auto-creates user, personal team, FREE plan |
+| GET | `/auth/me` | ✔ | – | Current authenticated user profile |
+| POST | `/auth/logout` | – | – | Clear auth cookie (204) |
+| POST | `/auth/dev-login` | – | – | Dev only: issue token for seeded/test user |
+| GET | `/teams` | ✔ | M | List user's authorized teams |
+| POST | `/teams` | ✔ | – | Create team |
+| GET | `/teams/{team_id}` | ✔ | M | Get team details |
+| PATCH | `/teams/{team_id}` | ✔ | A | Update team details |
+| GET | `/teams/{team_id}/members` | ✔ | M | List team members |
+| GET | `/projects` | ✔ | M | List user's authorized projects |
+| GET | `/projects/{project_id}` | ✔ | M | Get project details |
+| PATCH | `/projects/{project_id}` | ✔ | A | Update project |
+| POST | `/projects/{project_id}/archive` | ✔ | A | Archive project (never delete) |
+| GET | `/teams/{team_id}/projects` | ✔ | M | List team projects |
+| POST | `/teams/{team_id}/projects` | ✔ | A | Create project (enforces FREE plan 3-project quota) |
+| GET | `/repositories/available` | ✔ | – | Catalog of verified reference applications |
+| GET | `/projects/{project_id}/repositories` | ✔ | M | List repositories connected to project |
+| POST | `/projects/{project_id}/repositories` | ✔ | A | Connect GitHub repository to project |
+| GET | `/repositories/{repo_id}` | ✔ | M | Get repository details |
+| GET | `/repositories/{repo_id}/branches` | ✔ | M | List branches |
+| PUT | `/repositories/{repo_id}/deployment-branch` | ✔ | A | Set single deployment branch |
+| GET | `/repositories/{repo_id}/commits` | ✔ | M | List commits on deployment branch |
+| POST | `/repositories/{repo_id}/analyses` | ⚠️ | M | Returns 202 but currently runs a canned analyzer synchronously; no GitHub content retrieval or persisted worker |
+| GET | `/analyses/{analysis_id}` | ✔ | M | Get analysis report, detected services, and confidence |
+| GET | `/repositories/{repo_id}/analyses` | ✔ | M | List repository analysis history |
+| GET | `/projects/{project_id}/analyses` | ✔ | M | List project-wide analyses |
+| POST | `/analyses/{analysis_id}/architectures` | ✔ | M | Generate AWS Architecture Plan (201 Created) |
+| GET | `/projects/{project_id}/architectures` | ✔ | M | List project architectures with latest version |
+| GET | `/architectures/{arch_id}/versions/{version_number}` | ✔ | M | Get specific architecture version with component DAG & cost |
+| POST | `/teams/{team_id}/aws-accounts` | ✔ | A | Stores role ARN and External ID as `PENDING_VERIFICATION`; does not verify the role |
+| GET | `/teams/{team_id}/aws-accounts` | ✔ | M | List team connected AWS accounts |
+| POST | `/projects/{project_id}/deployments` | ✔ | M | Create deployment plan (initializes 5 steps & PENDING approval) |
+| GET | `/projects/{project_id}/deployments` | ✔ | M | List project deployment history |
+| GET | `/deployments/{deployment_id}` | ✔ | M | Get deployment details, step progress, and live endpoint |
+| POST | `/deployments/{deployment_id}/approve` | ✔ | A | Human Approval Gate: APPROVE or REJECT |
+| POST | `/deployments/{deployment_id}/apply` | ✔ | A | Requires approval, then returns 503 until role verification and a controlled deployment worker are implemented; makes no AWS changes |
 
-## 3. Planned endpoints 💡
+## 3. Planned future endpoints 💡
+
 
 Role column: **M** = MEMBER+, **A** = ADMIN+, **O** = OWNER.
 
@@ -95,7 +128,7 @@ Role column: **M** = MEMBER+, **A** = ADMIN+, **O** = OWNER.
 ### 3.4 Analysis (the AI brief's "Submit repo → Job ID → status → results")
 | Method | Path | Role | Notes |
 |---|---|:-:|---|
-| POST | `/repositories/{repo_id}/analyses` | M | body `{ "commit_sha": null }` (default: head of deployment branch) → **202** `{id,status:"QUEUED"}` |
+| POST | `/repositories/{repo_id}/analyses` | M | Current code executes the deterministic prototype synchronously and may return a completed status despite HTTP 202; no worker/polling lifecycle yet |
 | GET | `/analyses/{analysis_id}` | M | status, timestamps, error, and `report` when finished |
 | GET | `/repositories/{repo_id}/analyses` | M | history |
 | GET | `/analyses/{analysis_id}/services` | M | normalized `services` rows |
@@ -126,7 +159,7 @@ Example — `GET /analyses/{id}` when blocked:
 ### 3.5 Architectures
 | Method | Path | Role | Notes |
 |---|---|:-:|---|
-| POST | `/projects/{project_id}/architectures` | M | `{ "analysis_id": "…", "name": "Production" }` → **202** (runs Architecture Agent; only allowed on a validated, non-blocked analysis) |
+| POST | `/projects/{project_id}/architectures` | M | Prototype generation from current analysis data; fixed infrastructure/cost assumptions are not verified AWS estimates |
 | GET | `/projects/{project_id}/architectures` | M | |
 | GET | `/architectures/{id}` | M | |
 | GET | `/architectures/{id}/versions` | M | |
@@ -141,7 +174,6 @@ Example — `GET /analyses/{id}` when blocked:
 | Method | Path | Role | Notes |
 |---|---|:-:|---|
 | POST | `/teams/{team_id}/aws-accounts` | A | creates a `PENDING_VERIFICATION` record + **External ID**; returns role-creation snippet (CloudFormation/Terraform) |
-| POST | `/aws-accounts/{id}/verify` | A | STS `AssumeRole` test → `ACTIVE` / `VERIFICATION_FAILED` |
 | GET | `/teams/{team_id}/aws-accounts` | M | |
 | DELETE | `/aws-accounts/{id}` | A | disconnect (status `DISCONNECTED`, row kept) |
 
@@ -153,7 +185,8 @@ Example — `GET /analyses/{id}` when blocked:
 | GET | `/deployments/{id}` | M | status, error |
 | GET | `/deployments/{id}/steps` | M | ordered steps; failing step highlighted |
 | GET | `/deployments/{id}/resources` | M | `infrastructure_resources` |
-| POST | `/deployments/{id}/approve` | A | **human gate** before `terraform apply` |
+| POST | `/deployments/{id}/approve` | A | records the human decision; does not authorize deployment by itself |
+| POST | `/deployments/{id}/apply` | A | requires approval; currently returns **503** because no controlled AWS worker exists |
 | POST | `/deployments/{id}/cancel` | A | |
 | POST | `/deployments/{id}/retry` | A | new deployment with `trigger_type=RETRY` |
 

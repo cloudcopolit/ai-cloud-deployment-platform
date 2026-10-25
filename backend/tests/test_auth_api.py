@@ -94,7 +94,9 @@ class TestCurrentUser:
 
 class TestDevLogin:
     def test_issues_token_for_seeded_user(self, client: TestClient, user: User) -> None:
-        response = client.post("/auth/dev-login", json={"github_user_id": "1001"})
+        response = client.post(
+            "/auth/dev-login", json={"github_user_id": "1001"}, headers={"Origin": FRONTEND}
+        )
 
         assert response.status_code == 200
         body = response.json()
@@ -102,7 +104,9 @@ class TestDevLogin:
         assert decode_access_token(body["access_token"]) == user.id
 
     def test_unknown_user_is_not_found(self, client: TestClient) -> None:
-        response = client.post("/auth/dev-login", json={"github_user_id": "missing"})
+        response = client.post(
+            "/auth/dev-login", json={"github_user_id": "missing"}, headers={"Origin": FRONTEND}
+        )
 
         assert response.status_code == 404
 
@@ -111,13 +115,15 @@ class TestDevLogin:
     ) -> None:
         monkeypatch.setattr(settings, "environment", "production")
 
-        response = client.post("/auth/dev-login", json={"github_user_id": "1001"})
+        response = client.post(
+            "/auth/dev-login", json={"github_user_id": "1001"}, headers={"Origin": FRONTEND}
+        )
 
         assert response.status_code == 404
 
 
 def test_logout_clears_the_access_cookie(client: TestClient) -> None:
-    response = client.post("/auth/logout")
+    response = client.post("/auth/logout", headers={"Origin": FRONTEND})
 
     assert response.status_code == 204
     set_cookie = response.headers["set-cookie"]

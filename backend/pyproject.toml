@@ -10,6 +10,7 @@ check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 strict_equality = true
+cache_dir = "/tmp/.mypy_cache"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -25,3 +26,9 @@ branch = true
 show_missing = true
 skip_covered = true
 fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
