@@ -1,4 +1,7 @@
-"""CloudPilot AI contracts (DRAFT v1.0) - Pydantic v2, Python 3.12.
+"""CloudPilot AI contracts (v1.1) - Pydantic v2, Python 3.12.
+
+v1.1 (additive, 2026-10-25): AnalysisReport.recommendation, more DataStore engines
+(queues, search, caches), Usage. Reports written as v1.0 still validate.
 
 Shared by the backend and the AI layer. One definition, two consumers.
 Explained in ai-contracts.md. Verified by the contract tests and self-check
@@ -20,7 +23,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 class Strict(BaseModel):
@@ -69,6 +72,7 @@ class ErrorCode(StrEnum):
     AWS_DISCOVERY_FAILED = "AWS_DISCOVERY_FAILED"
     STAGE_TIMEOUT = "STAGE_TIMEOUT"
     JOB_TIMEOUT = "JOB_TIMEOUT"
+    JOB_CANCELLED = "JOB_CANCELLED"  # v1.1
     PERSISTENCE_FAILED = "PERSISTENCE_FAILED"
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
@@ -239,7 +243,23 @@ class EntryPoint(Detection):
 
 class DataStore(Detection):
     engine: Literal[
-        "postgresql", "mysql", "mongodb", "redis", "sqlite", "dynamodb", "s3", "sqs", "other"
+        "postgresql",
+        "mysql",
+        "mariadb",
+        "mongodb",
+        "redis",
+        "memcached",
+        "sqlite",
+        "dynamodb",
+        "cassandra",
+        "elasticsearch",
+        "kafka",
+        "rabbitmq",
+        "nats",
+        "s3",
+        "minio",
+        "sqs",
+        "other",
     ]
     inferred_from: ShortStr
 
@@ -271,6 +291,29 @@ class UnsupportedTechnology(Strict):
     reason: Annotated[str, StringConstraints(max_length=500)]
 
 
+class DeploymentRecommendation(Strict):
+    """How this repository should be deployed, and whether CloudPilot can automate it."""
+
+    method: Literal["container", "static_site", "serverless", "unsupported"]
+    reasoning: Annotated[str, StringConstraints(max_length=1000)]
+    services: list[ShortStr] = Field(default_factory=list)  # DetectedService names it covers
+    automated_by_cloudpilot: bool
+    confidence: Confidence
+
+
+class Usage(Strict):
+    """Model usage of one agent run. Never contains prompts or outputs."""
+
+    provider: ShortStr | None = None
+    model: ShortStr | None = None
+    calls: int = Field(default=0, ge=0)
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    cost_usd: float = Field(default=0.0, ge=0)
+    latency_ms: int = Field(default=0, ge=0)
+    mocked: bool = False  # True when no real provider was configured
+
+
 class AnalysisMeta(Strict):
     analyzer_version: ShortStr
     files_scanned: int = Field(ge=0)
@@ -281,7 +324,7 @@ class AnalysisMeta(Strict):
 
 
 class AnalysisReport(Strict):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["1.0", "1.1"] = "1.1"
     repository: RepositoryRef
     summary: Annotated[str, StringConstraints(max_length=1000)]
     languages: Annotated[list[Language], Field(max_length=50)] = Field(default_factory=list)
@@ -298,6 +341,7 @@ class AnalysisReport(Strict):
     unsupported: Annotated[list[UnsupportedTechnology], Field(max_length=50)] = Field(
         default_factory=list
     )
+    recommendation: DeploymentRecommendation | None = None  # v1.1
     overall_confidence: Confidence
     meta: AnalysisMeta
 

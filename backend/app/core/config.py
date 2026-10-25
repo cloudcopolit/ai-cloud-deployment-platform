@@ -27,5 +27,13 @@ class Settings(BaseSettings):
     github_api_url: str = "https://api.github.com"
     github_raw_url: str = "https://raw.githubusercontent.com"
 
+    # Background jobs (ADR-008). Defaults follow 06 §3.5.
+    job_timeout_s: int = Field(600, ge=10)
+    worker_poll_interval_s: float = Field(1.0, gt=0)
+    worker_heartbeat_interval_s: float = Field(5.0, gt=0)
+    worker_stale_after_s: int = Field(60, ge=5)  # no heartbeat for this long = worker lost
+    job_max_attempts: int = Field(2, ge=1)  # a lost job is re-queued until this many attempts
+    max_active_jobs_per_team: int = Field(5, ge=1)
+
 
 settings = Settings()

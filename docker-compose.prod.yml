@@ -43,6 +43,13 @@ services:
     <<: *hardening
     tmpfs: [/tmp]
     environment: *production-env
+
+  worker:
+    <<: *hardening
+    tmpfs: [/tmp]
+    environment:
+      <<: *production-env
+      RUN_MIGRATIONS: "false"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
 

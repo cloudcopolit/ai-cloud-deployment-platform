@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 
 import pytest
@@ -5,9 +6,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import AWSAccount, Branch, Commit, Project, Repository, Team, TeamMember, User
+from tests.factories import FASTAPI_FILES, run_queued_job_inline
+from tests.fakes import FakeGitHub
 
 
-def _setup_deployment_env(client: TestClient, db_session: Session) -> dict:
+def _setup_deployment_env(client: TestClient, db_session: Session, fake_github: FakeGitHub) -> dict:
     user = User(
         github_user_id="deploy-tester-1",
         name="Deploy Tester",
@@ -48,7 +51,9 @@ def _setup_deployment_env(client: TestClient, db_session: Session) -> dict:
     commit = Commit(
         repository_id=repo.id,
         branch_id=branch.id,
-        sha="deadbeef112233445566778899aabbccddeeff00",
+        sha=fake_github.add_repo("cloudpilot-test", "demo-shop").add_commit(
+            "main", "init", FASTAPI_FILES
+        ),
         message="feat: production release ready for aws",
         author_name="Dev Deployer",
         author_email="deployer@example.com",
@@ -69,6 +74,7 @@ def _setup_deployment_env(client: TestClient, db_session: Session) -> dict:
     analysis_resp = client.post(f"/repositories/{repo.id}/analyses", json={}, headers=headers)
     assert analysis_resp.status_code == 202
     analysis_id = analysis_resp.json()["id"]
+    assert run_queued_job_inline(db_session, fake_github, uuid.UUID(analysis_id)) == "SUCCESS"
 
     # 2. Generate Architecture
     arch_resp = client.post(
@@ -110,8 +116,10 @@ def _mark_aws_account_verified(db_session: Session, account_id: str) -> None:
     db_session.commit()
 
 
-def test_connect_and_list_aws_accounts(client: TestClient, db_session: Session) -> None:
-    env = _setup_deployment_env(client, db_session)
+def test_connect_and_list_aws_accounts(
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
+) -> None:
+    env = _setup_deployment_env(client, db_session, fake_github)
     team = env["team"]
     headers = env["headers"]
 
@@ -136,9 +144,10 @@ def test_connect_and_list_aws_accounts(client: TestClient, db_session: Session) 
 def test_aws_account_rejects_invalid_or_mismatched_role_arn(
     client: TestClient,
     db_session: Session,
+    fake_github: FakeGitHub,
     role_arn: str,
 ) -> None:
-    env = _setup_deployment_env(client, db_session)
+    env = _setup_deployment_env(client, db_session, fake_github)
 
     response = client.post(
         f"/teams/{env['team'].id}/aws-accounts",
@@ -155,9 +164,9 @@ def test_aws_account_rejects_invalid_or_mismatched_role_arn(
 
 
 def test_deployment_plan_requires_verified_aws_account(
-    client: TestClient, db_session: Session
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
 ) -> None:
-    env = _setup_deployment_env(client, db_session)
+    env = _setup_deployment_env(client, db_session, fake_github)
 
     response = client.post(
         f"/projects/{env['project'].id}/deployments",
@@ -174,9 +183,9 @@ def test_deployment_plan_requires_verified_aws_account(
 
 
 def test_apply_fails_closed_without_aws_deployment_worker(
-    client: TestClient, db_session: Session
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
 ) -> None:
-    env = _setup_deployment_env(client, db_session)
+    env = _setup_deployment_env(client, db_session, fake_github)
     project = env["project"]
     repo = env["repo"]
     headers = env["headers"]
@@ -247,8 +256,10 @@ def test_apply_fails_closed_without_aws_deployment_worker(
     assert len(proj_deployments.json()) >= 1
 
 
-def test_deployment_rejection_cancels_steps(client: TestClient, db_session: Session) -> None:
-    env = _setup_deployment_env(client, db_session)
+def test_deployment_rejection_cancels_steps(
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
+) -> None:
+    env = _setup_deployment_env(client, db_session, fake_github)
     _mark_aws_account_verified(db_session, env["aws_account_id"])
     project = env["project"]
     repo = env["repo"]

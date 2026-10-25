@@ -54,6 +54,11 @@ class QuotaExceeded(CloudPilotError):
     code = "PLAN_LIMIT_REACHED"
 
 
+class RateLimited(CloudPilotError):
+    status_code = 429
+    code = "RATE_LIMITED"
+
+
 class UpstreamError(CloudPilotError):
     status_code = 502
     code = "UPSTREAM_ERROR"

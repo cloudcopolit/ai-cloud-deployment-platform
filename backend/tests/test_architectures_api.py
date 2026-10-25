@@ -1,13 +1,16 @@
+import uuid
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import Branch, Commit, Project, Repository, Team, TeamMember, User
+from tests.factories import FASTAPI_FILES, run_queued_job_inline
+from tests.fakes import FakeGitHub
 
 
 def _setup_analyzed_repo(
-    client: TestClient, db_session: Session
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
 ) -> tuple[User, Team, Project, Repository, str, str]:
     user = User(
         github_user_id="arch-tester-1",
@@ -49,7 +52,9 @@ def _setup_analyzed_repo(
     commit = Commit(
         repository_id=repo.id,
         branch_id=branch.id,
-        sha="c0ffee112233445566778899aabbccddeeff0011",
+        sha=fake_github.add_repo("cloudpilot-test", "cloudpilot-fastapi-service").add_commit(
+            "main", "init", FASTAPI_FILES
+        ),
         message="feat: production api service",
         author_name="Arch Dev",
         author_email="archdev@example.com",
@@ -74,12 +79,15 @@ def _setup_analyzed_repo(
     )
     assert analysis_resp.status_code == 202
     analysis_id = analysis_resp.json()["id"]
+    assert run_queued_job_inline(db_session, fake_github, uuid.UUID(analysis_id)) == "SUCCESS"
 
     return user, team, project, repo, token, analysis_id
 
 
-def test_generate_and_retrieve_architecture(client: TestClient, db_session: Session) -> None:
-    _, _, project, _, token, analysis_id = _setup_analyzed_repo(client, db_session)
+def test_generate_and_retrieve_architecture(
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
+) -> None:
+    _, _, project, _, token, analysis_id = _setup_analyzed_repo(client, db_session, fake_github)
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://localhost:3000"}
 
     # Generate Architecture Plan
@@ -137,8 +145,10 @@ def test_generate_and_retrieve_architecture(client: TestClient, db_session: Sess
     assert v1_check.json()["status"] == "SUPERSEDED"
 
 
-def test_architecture_permissions(client: TestClient, db_session: Session) -> None:
-    _, _, _, _, _, analysis_id = _setup_analyzed_repo(client, db_session)
+def test_architecture_permissions(
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
+) -> None:
+    _, _, _, _, _, analysis_id = _setup_analyzed_repo(client, db_session, fake_github)
 
     # Outsider
     outsider = User(
@@ -166,10 +176,12 @@ def test_architecture_permissions(client: TestClient, db_session: Session) -> No
     assert resp.status_code == 404
 
 
-def test_architecture_not_found_handling(client: TestClient, db_session: Session) -> None:
+def test_architecture_not_found_handling(
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
+) -> None:
     import uuid
 
-    _, _, _, _, token, _analysis_id = _setup_analyzed_repo(client, db_session)
+    _, _, _, _, token, _analysis_id = _setup_analyzed_repo(client, db_session, fake_github)
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://localhost:3000"}
 
     # 404 for unknown analysis

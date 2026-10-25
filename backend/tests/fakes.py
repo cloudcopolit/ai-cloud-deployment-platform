@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlsplit
@@ -62,6 +63,7 @@ class FakeGitHub:
         self.requests: list[httpx.Request] = []
         self.rate_limited = False
         self.fail_with: int | None = None
+        self.raw_delay = 0.0  # seconds per file read, to simulate a slow repository
 
     def add_repo(self, owner: str, name: str, **kwargs) -> FakeRepo:
         repo = FakeRepo(owner=owner, name=name, github_id=100_000 + len(self.repos), **kwargs)
@@ -91,6 +93,8 @@ class FakeGitHub:
         url = urlsplit(str(request.url))
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         if f"{url.scheme}://{url.netloc}" == RAW:
+            if self.raw_delay:
+                time.sleep(self.raw_delay)
             return self._raw(url.path)
         path = url.path
         if path == "/rate_limit":

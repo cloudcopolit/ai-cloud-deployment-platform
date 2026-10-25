@@ -108,6 +108,24 @@ services:
       retries: 6
       start_period: 15s
 
+  # Runs analysis (and later deployment) jobs from the PostgreSQL queue (ADR-008).
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+    container_name: cloudpilot-worker
+    environment:
+      <<: *backend-environment
+      RUN_MIGRATIONS: "false"
+    volumes:
+      - ./secrets:/run/cloudpilot-secrets:ro
+    depends_on:
+      backend:
+        condition: service_healthy  # the API container has migrated the database
+    command: ["python", "-m", "app.jobs.worker"]
+    stop_grace_period: 30s
+
   frontend:
     build:
       context: ./frontend

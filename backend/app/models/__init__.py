@@ -1,3 +1,4 @@
+from app.models.agent import AgentRun, AgentTask  # noqa: F401
 from app.models.analysis import RepositoryAnalysis, Service  # noqa: F401
 from app.models.approval import Approval  # noqa: F401
 from app.models.architecture import Architecture, ArchitectureVersion  # noqa: F401

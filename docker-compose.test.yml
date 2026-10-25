@@ -29,6 +29,8 @@ services:
     profiles: [stack]
   backend:
     profiles: [stack]
+  worker:
+    profiles: [stack]
   frontend:
     profiles: [stack]
 

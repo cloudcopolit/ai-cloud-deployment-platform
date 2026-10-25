@@ -1,0 +1,20 @@
+# Secret-scan configuration. Extends the default gitleaks rules.
+# Every allowlisted path below holds deliberately fake values used by tests; nothing else is
+# exempt. Review this list whenever it grows.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials used by tests"
+paths = [
+  # Golden fixture repositories: AWS's documented example keys (AKIAIOSFODNN7EXAMPLE),
+  # used to prove committed secrets are detected and never echoed.
+  '''^ai/tests/fixture_repos\.py$''',
+  # Placeholder settings for configuration-validation tests.
+  '''^backend/tests/test_hardening\.py$''',
+]
+regexes = [
+  # Placeholders in example env files ("replace-with-…").
+  '''replace-with-[a-z-]+''',
+]

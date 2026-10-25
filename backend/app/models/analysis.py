@@ -1,7 +1,18 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +26,16 @@ class RepositoryAnalysis(UUIDPrimaryKeyMixin, Base):
         CheckConstraint(
             "status IN ('QUEUED','RUNNING','SUCCESS','BLOCKED','FAILED','TIMED_OUT','CANCELLED')",
             name="ck_repository_analyses_status",
+        ),
+        # worker polling (04 §9)
+        Index("ix_repository_analyses_status_created_at", "status", "created_at"),
+        # one job per Idempotency-Key and requester
+        Index(
+            "uq_repository_analyses_requested_by_idempotency_key",
+            "requested_by",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
         ),
     )
 
@@ -35,6 +56,24 @@ class RepositoryAnalysis(UUIDPrimaryKeyMixin, Base):
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_message: Mapped[str | None] = mapped_column(Text)
     analysis_data: Mapped[dict | None] = mapped_column(JSONB)
+
+    # ── job control (ADR-008, migration 6c1f0d2a9b3e) ──
+    branch_name: Mapped[str | None] = mapped_column(String(255))  # branch the user picked
+    parent_analysis_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("repository_analyses.id", ondelete="RESTRICT")
+    )  # re-run with answers to the parent's missing_info
+    user_answers: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(64))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    locked_by: Mapped[str | None] = mapped_column(String(64))  # worker id while RUNNING
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_requested: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    warnings: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
 
 
 class Service(UUIDPrimaryKeyMixin, Base):
