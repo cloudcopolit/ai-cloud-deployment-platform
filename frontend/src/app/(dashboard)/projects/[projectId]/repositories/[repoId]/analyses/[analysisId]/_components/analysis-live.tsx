@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { apiFetch } from '@/lib/api/client'
 import type { ApiFailure } from '@/lib/api/result'
 import { ActivitySchema, AnalysisJobSchema, type Activity, type AnalysisJob } from '@/lib/api/schemas'
-import { formatDuration, formatRelative, shortSha } from '@/lib/format'
+import { formatRelative, shortSha } from '@/lib/format'
 import { usePoll } from '@/lib/use-poll'
 import { ActivityView } from './activity-view'
 import { ArchitectHandoff } from './architect-handoff'
@@ -90,6 +90,7 @@ export function AnalysisLive({ initialJob, initialActivity, basePath, projectId,
   const [activity, setActivity] = useState(initialActivity)
   const [failure, setFailure] = useState<ApiFailure | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const router = useRouter()
 
   const tick = useCallback(
     async (signal: AbortSignal) => {
@@ -105,9 +106,11 @@ export function AnalysisLive({ initialJob, initialActivity, basePath, projectId,
       const changed = JSON.stringify(a.data.runs) !== JSON.stringify(activity.runs) || j.data.status !== job.status
       setActivity(a.data)
       setJob(j.data)
+      // the stepper and step links are server-rendered: re-render them once the job ends
+      if (j.data.terminal && !job.terminal) router.refresh()
       return { done: j.data.terminal, changed }
     },
-    [job.id, job.status, activity.runs]
+    [job.id, job.status, job.terminal, activity.runs, router]
   )
   usePoll(tick, { enabled: !job.terminal })
 
@@ -121,30 +124,6 @@ export function AnalysisLive({ initialJob, initialActivity, basePath, projectId,
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={job.status} />
-            {job.cancel_requested && !job.terminal ? <span className="text-xs text-muted-foreground">cancel requested…</span> : null}
-          </div>
-          {/* announced to screen readers as the job progresses */}
-          <p role="status" aria-live="polite" className="text-sm">
-            {STATUS_SENTENCE[job.status]}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            <span className="font-mono">{shortSha(job.commit_sha)}</span>
-            {job.branch_name ? ` on ${job.branch_name}` : ''} · queued {formatRelative(job.created_at)}
-            {job.duration_ms !== null ? ` · ran ${formatDuration(job.duration_ms)}` : ''}
-            {job.attempts > 1 ? ` · attempt ${job.attempts}` : ''}
-          </p>
-        </div>
-        {!job.terminal ? (
-          <Button type="button" variant="outline" onClick={cancel} disabled={cancelling || job.cancel_requested}>
-            {cancelling ? 'Cancelling…' : 'Cancel'}
-          </Button>
-        ) : null}
-      </div>
-
       {failure ? <ErrorState failure={failure} /> : null}
 
       {job.error_message ? (
@@ -157,7 +136,33 @@ export function AnalysisLive({ initialJob, initialActivity, basePath, projectId,
         <h2 id="activity" className="text-lg font-semibold">
           Agent activity
         </h2>
-        <ActivityView runs={activity.runs} />
+        <ActivityView
+          runs={activity.runs}
+          jobStatus={job.status}
+          terminal={job.terminal}
+          meta={
+            <>
+              <StatusBadge status={job.status} compact />
+              {/* announced to screen readers as the job progresses */}
+              <span role="status" aria-live="polite">
+                {STATUS_SENTENCE[job.status]}
+              </span>
+              <span>
+                <span className="font-mono">{shortSha(job.commit_sha)}</span>
+                {job.branch_name ? ` on ${job.branch_name}` : ''} · queued {formatRelative(job.created_at)}
+                {job.attempts > 1 ? ` · attempt ${job.attempts}` : ''}
+              </span>
+              {job.cancel_requested && !job.terminal ? <span>cancel requested…</span> : null}
+            </>
+          }
+          actions={
+            !job.terminal ? (
+              <Button type="button" variant="outline" size="sm" onClick={cancel} disabled={cancelling || job.cancel_requested}>
+                {cancelling ? 'Cancelling…' : 'Cancel'}
+              </Button>
+            ) : null
+          }
+        />
       </section>
 
       {job.status === 'BLOCKED' ? <AnswersForm job={job} basePath={basePath} /> : null}

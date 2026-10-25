@@ -8,7 +8,7 @@ import fullOnLight from '/public/logos/logo-full-on-light.svg'
 /**
  * The CloudPilot wordmark from public/logos. The light and dark artwork are both rendered and
  * swapped with CSS, so the right one shows before hydration and screen readers hear one name.
- * `surface="dark"` forces the on-dark artwork on brand-navy panels in either theme.
+ * `surface="dark"` forces the on-dark artwork on brand-black panels in either theme.
  */
 export function Logo({
   className,

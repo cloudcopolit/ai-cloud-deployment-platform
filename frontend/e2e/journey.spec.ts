@@ -25,9 +25,11 @@ test('connect a repository, pick a commit, watch the analysis live, read the rep
   await expect(page.getByText('Analysis finished.')).toBeVisible({ timeout: 60_000 })
 
   // the live view shows which agents ran and every step
-  await expect(page.getByRole('main').getByText('Orchestrator', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('started the job')).toBeVisible()
+  await expect(page.getByRole('main').getByText('checked the result')).toBeVisible()
   await expect(page.getByRole('main').getByText('Analysis agent', { exact: true })).toBeVisible()
-  await expect(page.getByText('Scan for committed secrets (path and kind only)')).toBeVisible()
+  await expect(page.getByText('Scanned for committed secrets')).toBeVisible()
+  await expect(page.getByText('No committed secrets found')).toBeVisible()
   await expect(page.getByText('No language model used (deterministic)').first()).toBeVisible()
 
   // the report is built from the repository's real files
@@ -36,6 +38,13 @@ test('connect a repository, pick a commit, watch the analysis live, read the rep
   await expect(services).toContainText('/health')
   await expect(page.getByText('CloudPilot can deploy this automatically.')).toBeVisible()
   await expectAccessible(page, 'analysis')
+  // the agent trace: every step with its result, raw output one click away
+  await expect(page.getByRole('progressbar', { name: 'Steps finished' })).toBeVisible()
+  await page.getByRole('button', { name: /Read the repository/ }).click()
+  await expect(page.getByText('← output')).toBeVisible()
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expectAccessible(page, 'analysis-black')
+  await page.emulateMedia({ colorScheme: 'light' })
 
   // hand the report to the Architect agent; its proposal is drawn with official AWS icons
   await page.getByRole('button', { name: 'Propose an architecture' }).click()
@@ -50,10 +59,13 @@ test('connect a repository, pick a commit, watch the analysis live, read the rep
   await diagram.getByRole('button', { name: /Application Load Balancer/ }).click()
   await expect(page.getByText('Why the Architect chose it')).toBeVisible()
   await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0) // closed, incl. its exit animation
   await page.getByRole('button', { name: 'About the Architect agent' }).first().click()
   await expect(page.getByRole('dialog')).toContainText('Writes Terraform')
   await page.keyboard.press('Escape')
   await expectAccessible(page, 'architecture')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expectAccessible(page, 'architecture-black')
 })
 
 test('a blocked analysis asks a question and the answer unblocks it', async ({ page }) => {

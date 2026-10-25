@@ -14,7 +14,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 const OPTIONS = [
   { value: 'light', label: 'Light theme', Icon: Sun },
-  { value: 'dark', label: 'Dark theme', Icon: Moon },
+  { value: 'dark', label: 'Black theme', Icon: Moon },
   { value: 'system', label: 'System theme', Icon: Monitor }
 ] as const
 

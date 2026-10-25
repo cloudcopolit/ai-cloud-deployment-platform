@@ -56,7 +56,7 @@ const STEPS: Step[] = [
 ]
 
 /**
- * GitHub → agents → human approval → AWS. On a brand-navy panel, give the panel the `dark`
+ * GitHub → agents → human approval → AWS. On a brand-black panel, give the panel the `dark`
  * class so these tokens (and the badges) switch to their checked dark values.
  */
 export function Pipeline({ showLevels = true, className }: { showLevels?: boolean; className?: string }) {

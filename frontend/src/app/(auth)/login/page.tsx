@@ -21,7 +21,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<{ er
   return (
     <div className="grid min-h-svh lg:grid-cols-[1.15fr_1fr]">
       {/* brand panel: `dark` keeps its text on the checked dark-theme tokens in either theme */}
-      <aside className="dark relative hidden overflow-hidden bg-brand-navy p-10 text-foreground lg:flex lg:flex-col lg:justify-between">
+      <aside className="dark relative hidden overflow-hidden bg-brand-black p-10 text-foreground lg:flex lg:flex-col lg:justify-between">
         <div aria-hidden className="bg-grid absolute inset-0 opacity-30" />
         <div aria-hidden className="absolute -left-32 -top-32 size-[32rem] rounded-full bg-brand-blue/30 blur-3xl" />
         <div aria-hidden className="absolute -bottom-40 -right-20 size-[26rem] rounded-full bg-brand-teal/20 blur-3xl" />

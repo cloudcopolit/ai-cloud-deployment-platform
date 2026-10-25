@@ -69,7 +69,7 @@ async function Projects() {
 
   return (
     <div className="space-y-8">
-      <section className="dark relative overflow-hidden rounded-2xl bg-brand-navy p-6 text-foreground sm:p-8">
+      <section className="dark relative overflow-hidden rounded-2xl bg-brand-black p-6 text-foreground sm:p-8">
         <div aria-hidden className="bg-grid absolute inset-0 opacity-30" />
         <div aria-hidden className="absolute -right-24 -top-24 size-80 rounded-full bg-brand-blue/30 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-6">

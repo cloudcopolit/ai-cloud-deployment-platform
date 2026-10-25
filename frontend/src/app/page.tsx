@@ -105,7 +105,7 @@ export default function LandingPage() {
 
       <main id="main">
         {/* Hero: always on the brand navy; `dark` switches the tokens inside to their dark values. */}
-        <section className="dark relative overflow-hidden bg-brand-navy text-foreground">
+        <section className="dark relative overflow-hidden bg-brand-black text-foreground">
           <div aria-hidden className="bg-grid absolute inset-0 opacity-40" />
           <div
             aria-hidden
@@ -252,7 +252,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="dark relative overflow-hidden bg-brand-navy text-foreground">
+        <section className="dark relative overflow-hidden bg-brand-black text-foreground">
           <div aria-hidden className="absolute -right-32 -top-32 size-96 rounded-full bg-brand-blue/30 blur-3xl" />
           <div className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 py-14 sm:px-6">
             <div className="space-y-2">
