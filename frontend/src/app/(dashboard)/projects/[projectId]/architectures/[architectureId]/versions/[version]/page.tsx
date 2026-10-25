@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { Lock, ShieldCheck } from 'lucide-react'
 
 import { AgentAvatar } from '@/components/agents/agent-avatar'
-import { ArchitectureDiagram } from '@/components/architecture/diagram'
+import { ArchitectureStudio } from '@/components/architecture/studio'
 import { describe } from '@/components/architecture/catalog'
 import { PageHeader } from '@/components/app/page-header'
 import { CapabilityBadge, ErrorState, Notice } from '@/components/app/states'
@@ -23,17 +23,18 @@ import { formatRelative, formatUsd } from '@/lib/format'
 export const metadata = { title: 'Architecture' }
 
 type Params = Promise<{ projectId: string; architectureId: string; version: string }>
+type Search = Promise<{ build?: string }>
 
-export default function ArchitectureVersionPage({ params }: { params: Params }) {
+export default function ArchitectureVersionPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   return (
     <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
-      <VersionContent params={params} />
+      <VersionContent params={params} searchParams={searchParams} />
     </Suspense>
   )
 }
 
-async function VersionContent({ params }: { params: Params }) {
-  const { projectId, architectureId, version } = await params
+async function VersionContent({ params, searchParams }: { params: Params; searchParams: Search }) {
+  const [{ projectId, architectureId, version }, { build }] = await Promise.all([params, searchParams])
   const [v, project] = await Promise.all([
     apiGet(`/architectures/${architectureId}/versions/${encodeURIComponent(version)}`, ArchitectureVersionSchema),
     apiGet(`/projects/${projectId}`, ProjectSchema)
@@ -54,6 +55,13 @@ async function VersionContent({ params }: { params: Params }) {
   const repoId = analysis?.ok ? analysis.data.repository_id : null
   const repo = repoId ? await apiGet(`/repositories/${repoId}`, RepositorySchema) : null
   const basePath = repoId ? `/projects/${projectId}/repositories/${repoId}` : `/projects/${projectId}`
+  const report = analysis?.ok ? analysis.data.report : null
+  const context = {
+    repository: repo?.ok ? `${repo.data.owner}/${repo.data.name}` : null,
+    services: report ? report.services.length : null,
+    dataStores: report ? report.data_stores.map((d) => d.engine) : [],
+    recommendation: report?.recommendation?.method ?? null
+  }
 
   return (
     <>
@@ -115,7 +123,7 @@ async function VersionContent({ params }: { params: Params }) {
         <h2 id="diagram" className="font-display text-lg font-semibold">
           Diagram
         </h2>
-        <ArchitectureDiagram plan={plan} />
+        <ArchitectureStudio plan={plan} context={context} autoplay={build === '1'} />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">

@@ -49,6 +49,10 @@ test('connect a repository, pick a commit, watch the analysis live, read the rep
   // hand the report to the Architect agent; its proposal is drawn with official AWS icons
   await page.getByRole('button', { name: 'Propose an architecture' }).click()
   await expect(page.getByRole('heading', { name: /Architecture · version \d+/ })).toBeVisible({ timeout: 30_000 })
+  // the board builds itself while the Architect's reasoning streams in, then settles
+  await expect(page.getByText('Thinking…')).toBeVisible()
+  await expect(page.getByText(/Reasoning · \d+ steps/)).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('list', { name: 'Reasoning steps' })).toContainText('Stopped for human approval')
   const diagram = page.getByRole('figure', { name: 'Architecture diagram' })
   await expect(diagram.getByRole('button', { name: /Application Load Balancer/ })).toBeVisible()
   await expect(diagram.locator('img[src="/aws-icons/ecs_service.svg"]')).toBeVisible()

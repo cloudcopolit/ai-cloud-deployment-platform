@@ -233,6 +233,28 @@ Every slice ends with: ruff + mypy + pytest (+migrations) + frontend lint/typech
 - Observed, not investigated yet: on the dev stack the header shows "GitHub: GitHub App · 60/60 req
   left", i.e. an App installation is reported while the rate limit is the anonymous one.
 
+### 2026-10-26 · session 3b: black theme, agent trace, architect drawing board
+- Owner asked for a Black theme instead of navy dark, agent steps shown like an agent console
+  (Claude / Cursor), and the architecture shown being drawn. Done:
+  - Black theme: pure `#000` with graphite surfaces; light theme moved to matching neutral greys.
+    `node scripts/contrast.mjs`: every token pair the UI uses passes WCAG 2.2 AA (only the raw brand
+    colors, which are not used for text, fail, as before).
+  - Agent trace (`activity-view.tsx`, `lib/agent-steps.ts` + tests): current step with a shimmer,
+    live elapsed timer, progress bar, planned steps listed before they run, one readable result
+    line per step from the real task output, raw output in a terminal block on expand,
+    Orchestrator start/finish events. The stepper re-renders when the job ends (it used to stay
+    "In progress" until reload).
+  - Architect board (`components/architecture/build.ts` + tests, `studio.tsx`): the diagram
+    builds itself (frame, components placed with a glow, links drawn along their length) while a
+    reasoning panel lists each decision. Every line comes from the stored plan or report
+    (rationale, links, cost lines, risks); the panel says it is a replay because the prototype
+    architect has no live reasoning stream. A fresh proposal opens with `?build=1`; Replay any time.
+    Reduced motion shows the finished board at once.
+- Evidence: lint clean, typecheck clean, vitest 48 passed, `scripts/e2e.sh` 15 passed (journey now
+  asserts the trace, raw output, board build to "Reasoning · N steps", axe in light and black).
+- LLM keys: all four still empty in `.env` (checked by name only), so providers stay MOCKED-ONLY.
+  An API key cannot be generated on the owner's behalf; it comes from the provider console.
+
 ## 7. Proposals awaiting owner approval (not implemented)
 
 _(none yet)_

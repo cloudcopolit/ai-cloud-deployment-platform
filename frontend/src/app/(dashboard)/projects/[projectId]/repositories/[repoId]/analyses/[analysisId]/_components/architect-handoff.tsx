@@ -38,7 +38,8 @@ export function ArchitectHandoff({
       setBusy(false)
       return setFailure(res)
     }
-    router.push(`/projects/${projectId}/architectures/${res.data.architecture_id}/versions/${res.data.version_number}`)
+    // open with the board building itself, step by step
+    router.push(`/projects/${projectId}/architectures/${res.data.architecture_id}/versions/${res.data.version_number}?build=1`)
   }
 
   return (

@@ -10,6 +10,7 @@ import type { ArchitecturePlan, PlanComponent } from '@/lib/api/schemas'
 import { AWS_ICONS } from '@/lib/aws-icons/manifest'
 import { formatUsd } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { linkKey, type Reveal } from './build'
 import { describe, edgesOf, type Edge, type Zone } from './catalog'
 
 type Line = Edge & { d: string }
@@ -34,13 +35,14 @@ function linkPath(a: DOMRect, b: DOMRect, origin: DOMRect): string {
   return `M ${ax} ${y1} C ${ax} ${mid}, ${bx} ${mid}, ${bx} ${y2}`
 }
 
-function NodeTile({ src, size = 'md' }: { src: string | null; size?: 'md' | 'sm' }) {
+function NodeTile({ src, size = 'md', glow = false }: { src: string | null; size?: 'md' | 'sm'; glow?: boolean }) {
   const box = size === 'md' ? 'size-14' : 'size-10'
   return (
     <span
       className={cn(
-        'grid shrink-0 place-items-center rounded-xl border bg-icon-surface shadow-sm',
-        box
+        'grid shrink-0 place-items-center rounded-xl border bg-icon-surface shadow-sm transition-shadow duration-700',
+        box,
+        glow && 'node-glow'
       )}
     >
       {src ? (
@@ -58,12 +60,18 @@ function ComponentNode({
   component,
   plan,
   active,
-  onActive
+  onActive,
+  hidden = false,
+  fresh = false
 }: {
   component: PlanComponent
   plan: ArchitecturePlan
   active: string | null
   onActive: (id: string | null) => void
+  /** Not placed on the board yet (while it builds). */
+  hidden?: boolean
+  /** Just placed: glows for a moment. */
+  fresh?: boolean
 }) {
   const info = describe(component)
   const cost = plan.cost.lines.find((l) => l.component_id === component.id)
@@ -73,17 +81,20 @@ function ComponentNode({
     <Popover onOpenChange={(open) => onActive(open ? component.id : null)}>
       <PopoverTrigger
         data-node={component.id}
+        tabIndex={hidden ? -1 : undefined}
+        aria-hidden={hidden || undefined}
         onMouseEnter={() => onActive(component.id)}
         onMouseLeave={() => onActive(null)}
         onFocus={() => onActive(component.id)}
         onBlur={() => onActive(null)}
         className={cn(
-          'flex w-36 flex-col items-center gap-1.5 rounded-xl p-2 text-center transition',
+          'flex w-36 flex-col items-center gap-1.5 rounded-xl p-2 text-center',
+          'transition-[opacity,transform,filter] duration-500 ease-[cubic-bezier(.2,.8,.2,1)]',
           'hover:bg-background/80 focus-visible:bg-background/80',
-          dimmed && 'opacity-50'
+          hidden ? 'pointer-events-none translate-y-2 scale-75 opacity-0 blur-[2px]' : dimmed && 'opacity-50'
         )}
       >
-        <NodeTile src={info.iconSrc} />
+        <NodeTile src={info.iconSrc} glow={fresh} />
         <span className="text-xs font-medium leading-tight">{info.label}</span>
         <span className="max-w-full truncate font-mono text-[10px] text-muted-foreground">{component.id}</span>
       </PopoverTrigger>
@@ -158,7 +169,16 @@ function Frame({
  * The plan as an AWS diagram: official icons, VPC and region frames, and the links the plan
  * states. Every node opens its rationale. The table on the page is the accessible alternative.
  */
-export function ArchitectureDiagram({ plan }: { plan: ArchitecturePlan }) {
+export function ArchitectureDiagram({
+  plan,
+  reveal = null,
+  footer = true
+}: {
+  plan: ArchitecturePlan
+  /** While the board builds: what is on it so far. `null` shows the finished diagram. */
+  reveal?: Reveal | null
+  footer?: boolean
+}) {
   const canvas = useRef<HTMLDivElement>(null)
   const [lines, setLines] = useState<Line[]>([])
   const [active, setActive] = useState<string | null>(null)
@@ -195,7 +215,15 @@ export function ArchitectureDiagram({ plan }: { plan: ArchitecturePlan }) {
   }, [measure])
 
   const node = (c: PlanComponent) => (
-    <ComponentNode key={c.id} component={c} plan={plan} active={active} onActive={setActive} />
+    <ComponentNode
+      key={c.id}
+      component={c}
+      plan={plan}
+      active={active}
+      onActive={setActive}
+      hidden={reveal !== null && !reveal.nodes.has(c.id)}
+      fresh={reveal?.fresh === c.id}
+    />
   )
   const column = (title: string, items: PlanComponent[]) =>
     items.length ? (
@@ -227,17 +255,22 @@ export function ArchitectureDiagram({ plan }: { plan: ArchitecturePlan }) {
               </marker>
             </defs>
             {lines.map((l) => {
+              const key = linkKey(l)
+              if (reveal && !reveal.links.has(key)) return null
               const lit = active === null || active === l.from || active === l.to
+              // while building, each link draws along its length (pathLength=1), then settles
               return (
                 <path
-                  key={`${l.from}-${l.to}`}
+                  key={reveal ? `draw-${key}` : key}
                   d={l.d}
                   fill="none"
+                  pathLength={reveal ? 1 : undefined}
                   strokeWidth={lit && active !== null ? 2.5 : 1.75}
                   markerEnd={l.kind === 'request' ? 'url(#arrow)' : 'url(#arrow-muted)'}
                   className={cn(
                     'transition-opacity',
-                    l.kind === 'request' ? 'link-flow stroke-primary' : 'stroke-border-strong [stroke-dasharray:4_4]',
+                    l.kind === 'request' ? 'stroke-primary' : 'stroke-border-strong',
+                    reveal ? 'link-draw' : l.kind === 'request' ? 'link-flow' : '[stroke-dasharray:4_4]',
                     !lit && 'opacity-15'
                   )}
                 />
@@ -247,7 +280,7 @@ export function ArchitectureDiagram({ plan }: { plan: ArchitecturePlan }) {
 
           <div className="relative flex items-center gap-8">
             <div className="flex flex-col items-center gap-1.5" data-node="users">
-              <NodeTile src={AWS_ICONS.users.src} />
+              <NodeTile src={AWS_ICONS.users.src} glow={reveal !== null && reveal.links.size === 0} />
               <span className="text-xs font-medium">Users</span>
               <span className="text-[10px] text-muted-foreground">Internet</span>
             </div>
@@ -262,7 +295,14 @@ export function ArchitectureDiagram({ plan }: { plan: ArchitecturePlan }) {
                 <div className="flex flex-wrap justify-center gap-4">{zones.edge.map(node)}</div>
               ) : null}
               {hasVpc ? (
-                <Frame icon={AWS_ICONS.group_vpc.src} title="VPC" className="border-[#8c4fff]/60">
+                <Frame
+                  icon={AWS_ICONS.group_vpc.src}
+                  title="VPC"
+                  className={cn(
+                    'border-[#8c4fff]/60 transition-[opacity,transform] duration-700 ease-[cubic-bezier(.2,.8,.2,1)]',
+                    reveal && !reveal.frame && 'scale-[0.98] border-dashed opacity-30'
+                  )}
+                >
                   {inner}
                 </Frame>
               ) : (
@@ -280,12 +320,12 @@ export function ArchitectureDiagram({ plan }: { plan: ArchitecturePlan }) {
           </div>
 
           <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-full border bg-background/90 py-1 pl-1 pr-3 text-xs shadow-sm">
-            <AgentPortrait agent={AGENTS.ARCHITECTURE} size="sm" />
-            Drawn from the Architect agent&apos;s plan
+            <AgentPortrait agent={AGENTS.ARCHITECTURE} size="sm" working={reveal !== null} />
+            {reveal ? <span className="shimmer-text">The Architect is drawing…</span> : 'Drawn from the Architect agent’s plan'}
           </div>
         </div>
       </div>
-      <figcaption className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
+      <figcaption className={cn('flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground', !footer && 'sr-only')}>
         <span className="flex items-center gap-1.5">
           <svg aria-hidden width="28" height="6">
             <path d="M0 3h28" className="stroke-primary" strokeWidth="2" strokeDasharray="6 6" />
