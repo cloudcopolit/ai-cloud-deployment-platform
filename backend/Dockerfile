@@ -60,6 +60,7 @@ RUN tar -xzf /tmp/tofu.tgz -C /usr/local/bin tofu && rm /tmp/tofu.tgz && tofu ve
 # The lock file generated here ships with the stack, so the cache is used (not copied).
 COPY docker/deploy-runner/tofurc /opt/tofu/tofurc
 COPY infrastructure/opentofu/stacks/container-postgres/versions.tf /opt/tofu/pin/versions.tf
+# hadolint ignore=DL3003
 RUN mkdir -p /opt/tofu/plugin-cache \
     && cd /opt/tofu/pin \
     && tofu providers mirror -platform=linux_amd64 /opt/tofu/providers \
