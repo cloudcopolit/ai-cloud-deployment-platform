@@ -171,4 +171,3 @@ jobs:
           alembic downgrade base
           alembic upgrade head
           alembic current
-

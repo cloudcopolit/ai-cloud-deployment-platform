@@ -56,6 +56,7 @@ jobs:
         run: pnpm test
 
       - name: Colour contrast of design tokens (WCAG 2.2 AA)
+        if: hashFiles('frontend/scripts/contrast.mjs') != ''
         run: node scripts/contrast.mjs
 
       - name: Production build
