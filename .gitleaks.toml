@@ -19,4 +19,8 @@ paths = [
 regexes = [
   # Placeholders in example env files ("replace-with-…").
   '''replace-with-[a-z-]+''',
+  # The one made-up AWS key id the deploy tests feed to the OpenTofu output sanitizer
+  # (backend/tests/test_deploy_units.py, test_deploy_adapters.py). Exact value only, so a
+  # real key in those files is still reported.
+  '''^AKIAABCDEFGHIJKLMNOP$''',
 ]
