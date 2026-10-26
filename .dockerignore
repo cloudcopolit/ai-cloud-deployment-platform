@@ -22,3 +22,13 @@ credentials
 *.tfstate
 *.tfstate.*
 *.tfplan
+**/secrets
+**/*.pem
+**/*.key
+**/*accessKeys*.csv
+**/.env
+**/.env.*
+!**/.env.example
+test-runs
+**/.terraform
+**/.terraform.lock.hcl.bak

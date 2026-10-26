@@ -276,3 +276,35 @@ def test_renamed_repository_redirect_is_followed_on_the_same_host_only() -> None
     assert (info.owner, info.name) == ("new-owner", "new-name")
     with pytest.raises(UpstreamError):
         client.get_repository("evil", "name")
+
+
+def test_access_status_counts_installations_without_permissions_as_unusable() -> None:
+    """The dev header used to say "GitHub App" while every read was anonymous: the only
+    installation granted no permissions. The status now says how many installations can read."""
+    pem, _ = _private_key_pem()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/app/installations":
+            return httpx.Response(
+                200,
+                json=[
+                    {"id": 1, "permissions": {}},
+                    {"id": 2, "permissions": {"contents": "read", "metadata": "read"}},
+                ],
+            )
+        if request.url.path == "/rate_limit":
+            assert "authorization" not in request.headers  # no token: the anonymous budget
+            return httpx.Response(200, json={"resources": {"core": {"limit": 60, "remaining": 60}}})
+        return httpx.Response(404)
+
+    client = GitHubClient(
+        api_url=API,
+        raw_url=RAW,
+        app_id="42",
+        app_private_key=pem,
+        transport=httpx.MockTransport(handler),
+    )
+    status = client.access_status()
+    assert (status.app_installations, status.app_installations_usable) == (2, 1)
+    assert status.mode_for_public_repos == "ANONYMOUS"
+    assert (status.rate_limit_remaining, status.rate_limit_limit) == (60, 60)

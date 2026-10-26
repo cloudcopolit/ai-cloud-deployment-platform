@@ -101,6 +101,8 @@ class AccessStatus:
 
     app_configured: bool
     app_installations: int | None
+    # installations that grant the App any repository permission; one with none reads nothing
+    app_installations_usable: int | None
     token_configured: bool
     rate_limit_remaining: int | None
     rate_limit_limit: int | None
@@ -384,17 +386,22 @@ class GitHubClient:
     # ───────────────────────── status ─────────────────────────
     def access_status(self) -> AccessStatus:
         installations: int | None = None
+        usable: int | None = None
         if self.app_configured:
             response = self._send(
                 "GET", "/app/installations", headers={"Authorization": f"Bearer {self._app_jwt()}"}
             )
-            installations = len(response.json()) if response.status_code == 200 else None
+            if response.status_code == 200:
+                rows = response.json()
+                installations = len(rows)
+                usable = sum(1 for row in rows if row.get("permissions"))
         auth = {"Authorization": f"Bearer {self._token}"} if self._token else {}
         rate = self._send("GET", "/rate_limit", headers=auth)
         core = rate.json().get("resources", {}).get("core", {}) if rate.status_code == 200 else {}
         return AccessStatus(
             app_configured=self.app_configured,
             app_installations=installations,
+            app_installations_usable=usable,
             token_configured=bool(self._token),
             rate_limit_remaining=core.get("remaining"),
             rate_limit_limit=core.get("limit"),

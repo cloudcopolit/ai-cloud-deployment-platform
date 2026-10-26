@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -267,14 +268,20 @@ def test_repository_reads_are_tenant_scoped(
 
 
 def test_github_access_status_has_no_secrets(
-    client: TestClient, db_session: Session, fake_github: FakeGitHub
+    client: TestClient,
+    db_session: Session,
+    fake_github: FakeGitHub,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # hermetic: the developer's .env may name a real App slug
+    monkeypatch.setattr("app.modules.repositories.service.settings.github_app_slug", None)
     owner, *_ = _world(db_session, fake_github)
     res = client.get("/github/access", headers=headers_for(owner))
     assert res.status_code == 200
     assert res.json() == {
         "app_configured": False,
         "app_installations": None,
+        "app_installations_usable": None,
         "app_install_url": None,
         "token_configured": False,
         "rate_limit_remaining": 57,

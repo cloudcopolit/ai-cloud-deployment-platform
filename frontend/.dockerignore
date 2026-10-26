@@ -13,3 +13,7 @@ Dockerfile
 
 # Raw AWS icon package never enters the image (ADR-020)
 vendor
+*.pem
+**/secrets
+test-results/
+playwright-report/

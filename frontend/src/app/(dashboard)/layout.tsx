@@ -63,15 +63,23 @@ async function GitHubStatus() {
     )
   }
   const a = access.data
-  const mode = a.app_installations ? 'GitHub App' : a.token_configured ? 'token' : 'anonymous'
+  // public repositories are read with the token, or anonymously; an App installation only
+  // helps for the repositories it covers, and only if it grants permissions
+  const mode = a.token_configured ? 'token' : 'anonymous'
+  const appUnusable = Boolean(a.app_installations) && a.app_installations_usable === 0
   const low = a.rate_limit_remaining !== null && a.rate_limit_remaining < 10
   return (
     <span
-      className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs sm:inline-flex ${low ? 'border-warning/60 text-warning' : 'text-muted-foreground'}`}
-      title="How this CloudPilot instance reads GitHub, and the API requests left this hour"
+      className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs sm:inline-flex ${low || appUnusable ? 'border-warning/60 text-warning' : 'text-muted-foreground'}`}
+      title={
+        appUnusable
+          ? 'The CloudPilot GitHub App is installed but grants no repository permissions, so it reads nothing. Grant Contents: read and Metadata: read.'
+          : 'How this CloudPilot instance reads public repositories, and the API requests left this hour'
+      }
     >
       GitHub: {mode}
       {a.rate_limit_remaining !== null ? ` · ${a.rate_limit_remaining}/${a.rate_limit_limit} req left` : ''}
+      {a.app_installations ? ` · App ${appUnusable ? 'installed, no permissions' : `on ${a.app_installations_usable ?? '?'} installation(s)`}` : ''}
     </span>
   )
 }

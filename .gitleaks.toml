@@ -13,6 +13,8 @@ paths = [
   '''^ai/tests/fixture_repos\.py$''',
   # Placeholder settings for configuration-validation tests.
   '''^backend/tests/test_hardening\.py$''',
+  # Redactor test on the Ai-analysis branches: documented dummy keys ("sk-…", AKIA…EXAMPLE).
+  '''^AI/test/test_analysis_agent\.py$''',
 ]
 regexes = [
   # Placeholders in example env files ("replace-with-…").

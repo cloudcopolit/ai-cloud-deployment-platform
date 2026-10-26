@@ -72,6 +72,7 @@ export type Commit = z.infer<typeof CommitSchema>
 export const GitHubAccessSchema = z.object({
   app_configured: z.boolean(),
   app_installations: z.number().nullable(),
+  app_installations_usable: z.number().nullable().optional(),
   app_install_url: z.string().nullable(),
   token_configured: z.boolean(),
   rate_limit_remaining: z.number().nullable(),

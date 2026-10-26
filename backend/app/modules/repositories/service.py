@@ -318,6 +318,7 @@ def github_access(github: GitHubClient) -> GitHubAccessRead:
     return GitHubAccessRead(
         app_configured=status.app_configured,
         app_installations=status.app_installations,
+        app_installations_usable=status.app_installations_usable,
         app_install_url=install_url,
         token_configured=status.token_configured,
         rate_limit_remaining=status.rate_limit_remaining,

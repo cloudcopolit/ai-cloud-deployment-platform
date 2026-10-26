@@ -67,6 +67,7 @@ class GitHubAccessRead(BaseModel):
 
     app_configured: bool
     app_installations: int | None
+    app_installations_usable: int | None  # installations that grant repository permissions
     app_install_url: str | None
     token_configured: bool
     rate_limit_remaining: int | None
