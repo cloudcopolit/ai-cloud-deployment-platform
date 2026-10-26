@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     job_max_attempts: int = Field(2, ge=1)  # a lost job is re-queued until this many attempts
     max_active_jobs_per_team: int = Field(5, ge=1)
 
+    # Architecture (ADR-023): priced, deployable patterns; off = prototype template only.
+    architect_automated_archetypes: bool = False
+
+    # CloudPilot's own AWS identity (ADR-028). Never the ambient AWS_* (LocalStack) values.
+    cloudpilot_aws_access_key_id: str | None = None
+    cloudpilot_aws_secret_access_key: str | None = None
+    cloudpilot_aws_region: str = "us-east-1"
+    cloudpilot_aws_endpoint_url: str | None = None  # LocalStack in tests; empty = real AWS
+
     # Language models (ADR-022). A provider without a key is never called (MOCKED-ONLY).
     llm_provider_priority: str = "anthropic,openai,gemini,xai"
     anthropic_api_key: str | None = None

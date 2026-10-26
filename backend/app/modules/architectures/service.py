@@ -1,10 +1,12 @@
 from uuid import UUID
 
+from cloudpilot_ai.architecture import design_architecture
 from cloudpilot_ai.contracts import AnalysisReport
 from cloudpilot_ai.prototype.architect import run_architecture_agent
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.errors import BadRequest, NotFound
 from app.core.permissions import check_team_role
 from app.models import (
@@ -65,12 +67,14 @@ def generate_architecture_proposal(
     # Validate and reconstruct the AnalysisReport
     report = AnalysisReport.model_validate(analysis.analysis_data, strict=False)
 
-    # Synthesize ArchitecturePlan via Architecture Agent
-    plan = run_architecture_agent(
-        report=report,
-        source_analysis_id=analysis.id,
-        region=request.region,
-    )
+    # The Architect: a deterministic, priced pattern when the report fits an automated
+    # archetype; otherwise the prototype template marked not automated (ADR-023).
+    if settings.architect_automated_archetypes:
+        plan = design_architecture(report, source_analysis_id=analysis.id, region=request.region)
+    else:
+        plan = run_architecture_agent(
+            report=report, source_analysis_id=analysis.id, region=request.region
+        )
 
     # Look for existing active architecture for this project
     arch_name = request.name or f"{project.name} AWS Architecture"

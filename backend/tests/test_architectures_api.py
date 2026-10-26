@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -85,8 +86,14 @@ def _setup_analyzed_repo(
 
 
 def test_generate_and_retrieve_architecture(
-    client: TestClient, db_session: Session, fake_github: FakeGitHub
+    client: TestClient,
+    db_session: Session,
+    fake_github: FakeGitHub,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        "app.modules.architectures.service.settings.architect_automated_archetypes", True
+    )
     _, _, project, _, token, analysis_id = _setup_analyzed_repo(client, db_session, fake_github)
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://localhost:3000"}
 
@@ -109,6 +116,13 @@ def test_generate_and_retrieve_architecture(
     assert "vpc" in component_types
     assert "alb" in component_types
     assert "ecs_service" in component_types
+    # FastAPI + psycopg with a Dockerfile fits the automated archetype: priced from the AWS
+    # price table (not the prototype's literals) and deployable end to end
+    data = plan_data["architecture_data"]
+    assert (data["archetype"], data["automated"]) == ("container-postgres", True)
+    assert "rds" in component_types
+    assert data["cost"]["pricing_as_of"][:2] == "20"
+    assert plan_data["monthly_cost"] == data["cost"]["monthly_total"]
 
     # Retrieve Version
     get_ver_resp = client.get(
@@ -135,6 +149,9 @@ def test_generate_and_retrieve_architecture(
     assert v2_resp.status_code == 201
     v2_data = v2_resp.json()
     assert v2_data["version_number"] == 2
+    # no price table for us-west-2 yet: honest fallback, not automated
+    assert v2_data["architecture_data"]["automated"] is False
+    assert v2_data["architecture_data"]["risks"][0]["code"] == "NOT_AUTOMATED"
 
     # Check that Version 1 is now marked SUPERSEDED
     v1_check = client.get(
@@ -195,3 +212,16 @@ def test_architecture_not_found_handling(
     # 404 for unknown project architecture list
     bad_proj_arch_url = f"/projects/{uuid.uuid4()}/architectures"
     assert client.get(bad_proj_arch_url, headers=headers).status_code == 404
+
+
+def test_with_the_rollout_flag_off_the_prototype_template_is_used(
+    client: TestClient, db_session: Session, fake_github: FakeGitHub
+) -> None:
+    """ADR-023: automated archetypes are behind ARCHITECT_AUTOMATED_ARCHETYPES (off by default)."""
+    *_, token, analysis_id = _setup_analyzed_repo(client, db_session, fake_github)
+    headers = {"Authorization": f"Bearer {token}", "Origin": "http://localhost:3000"}
+    resp = client.post(f"/analyses/{analysis_id}/architectures", json={}, headers=headers)
+    assert resp.status_code == 201
+    data = resp.json()["architecture_data"]
+    assert data["automated"] is False
+    assert data["archetype"] is None

@@ -407,8 +407,12 @@ class CostEstimate(Strict):
 
 
 class ArchitecturePlan(Strict):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["1.0", "1.1"] = "1.1"
     source_analysis_id: UUID
+    # v1.1: which deterministic pattern produced the plan (None: prototype template), and
+    # whether CloudPilot can deploy it end to end (only priced, module-backed archetypes can)
+    archetype: ShortStr | None = None
+    automated: bool = False
     region: Region
     components: Annotated[list[Component], Field(min_length=1, max_length=100)]
     assumptions: list[Assumption] = Field(default_factory=list)
