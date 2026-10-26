@@ -58,6 +58,14 @@ export function DashboardSidebar({ user, teams, projects }: DashboardSidebarProp
             <SpriteIcon name="ui-bot" className="size-4" />
             Agents
           </Link>
+          <Link
+            href="/aws"
+            className={link('/aws', pathname === '/aws')}
+            aria-current={pathname === '/aws' ? 'page' : undefined}
+          >
+            <SpriteIcon name="ui-cloud" className="size-4" />
+            AWS accounts
+          </Link>
           </div>
 
           {teams.map((team) => {

@@ -2,6 +2,7 @@ from app.models.agent import AgentRun, AgentTask  # noqa: F401
 from app.models.analysis import RepositoryAnalysis, Service  # noqa: F401
 from app.models.approval import Approval  # noqa: F401
 from app.models.architecture import Architecture, ArchitectureVersion  # noqa: F401
+from app.models.audit import AuditLog, RateLimitBucket  # noqa: F401
 from app.models.aws_account import AWSAccount  # noqa: F401
 from app.models.branch import Branch  # noqa: F401
 from app.models.commit import Commit  # noqa: F401

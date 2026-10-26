@@ -16,6 +16,7 @@ const plan: ArchitecturePlan = {
   schema_version: '1.0',
   source_analysis_id: 'a',
   region: 'us-east-1',
+  automated: false,
   components: [
     c('vpc', 'vpc'),
     c('alb', 'alb', ['vpc']),

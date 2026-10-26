@@ -149,7 +149,12 @@ class GitHubClient:
         transport: httpx.BaseTransport | None = None,
         clock: Callable[[], float] = time.time,
         sleep: Callable[[float], None] = time.sleep,
+        mirror: GitHubClient | None = None,
+        mirror_owner: str | None = None,
     ) -> None:
+        # dev only: one owner's repositories are served by a local mirror (see get_github_client)
+        self._mirror = mirror if mirror_owner else None
+        self._mirror_owner = (mirror_owner or "").lower()
         self._api_url = api_url.rstrip("/")
         self._raw_url = raw_url.rstrip("/")
         self._token = token or None
@@ -168,6 +173,15 @@ class GitHubClient:
 
     def close(self) -> None:
         self._http.close()
+        if self._mirror is not None:
+            self._mirror.close()
+
+    def _route(self, owner: str) -> GitHubClient | None:
+        return (
+            self._mirror
+            if self._mirror is not None and owner.lower() == self._mirror_owner
+            else None
+        )
 
     # ───────────────────────── credentials ─────────────────────────
     @property
@@ -292,6 +306,8 @@ class GitHubClient:
 
     # ───────────────────────── repository API ─────────────────────────
     def get_repository(self, owner: str, name: str) -> RepoInfo:
+        if mirror := self._route(owner):
+            return mirror.get_repository(owner, name)
         data, mode, _ = self._get_json(owner, name, f"/repos/{owner}/{name}")
         return RepoInfo(
             github_id=str(data["id"]),
@@ -305,6 +321,8 @@ class GitHubClient:
         )
 
     def list_branches(self, owner: str, name: str) -> tuple[list[BranchInfo], bool]:
+        if mirror := self._route(owner):
+            return mirror.list_branches(owner, name)
         """Branches (up to 300) and whether the list was cut off."""
         branches: list[BranchInfo] = []
         for page in range(1, MAX_BRANCH_PAGES + 1):
@@ -317,6 +335,8 @@ class GitHubClient:
         return branches, True
 
     def list_commits(self, owner: str, name: str, branch: str, limit: int = 20) -> list[CommitInfo]:
+        if mirror := self._route(owner):
+            return mirror.list_commits(owner, name, branch, limit)
         data, _, _ = self._get_json(
             owner,
             name,
@@ -326,6 +346,8 @@ class GitHubClient:
         return [self._commit_info(c) for c in data]
 
     def get_commit(self, owner: str, name: str, ref: str) -> CommitInfo:
+        if mirror := self._route(owner):
+            return mirror.get_commit(owner, name, ref)
         data, _, _ = self._get_json(owner, name, f"/repos/{owner}/{name}/commits/{ref}")
         return self._commit_info(data)
 
@@ -344,6 +366,8 @@ class GitHubClient:
         )
 
     def get_tree(self, owner: str, name: str, sha: str) -> Tree:
+        if mirror := self._route(owner):
+            return mirror.get_tree(owner, name, sha)
         """Recursive file listing at a commit (blobs only; symlinks and submodules skipped)."""
         if not _SHA.match(sha):
             raise BadRequest("A full 40-character commit SHA is required.")
@@ -359,6 +383,8 @@ class GitHubClient:
         return Tree(entries=entries, truncated=bool(data.get("truncated")))
 
     def read_file(self, owner: str, name: str, sha: str, path: str, max_bytes: int) -> bytes:
+        if mirror := self._route(owner):
+            return mirror.read_file(owner, name, sha, path, max_bytes)
         """File content at a commit, at most ``max_bytes`` (RepositoryTooLarge beyond)."""
         if not _SHA.match(sha) or path.startswith("/") or ".." in path.split("/"):
             raise BadRequest("Invalid file reference.")
@@ -425,11 +451,18 @@ def get_github_client() -> GitHubClient:
     global _client
     with _client_lock:
         if _client is None:
+            mirror = None
+            # dev only (never in production): CloudPilot's own example apps, served locally
+            if settings.github_dev_mirror_url and settings.environment != "production":
+                url = settings.github_dev_mirror_url.rstrip("/")
+                mirror = GitHubClient(api_url=url, raw_url=f"{url}/raw")
             _client = GitHubClient(
                 api_url=settings.github_api_url,
                 raw_url=settings.github_raw_url,
                 token=settings.github_token,
                 app_id=settings.github_app_id,
                 app_private_key=_read_private_key(settings.github_app_private_key_path),
+                mirror=mirror,
+                mirror_owner=settings.github_dev_mirror_owner if mirror else None,
             )
         return _client

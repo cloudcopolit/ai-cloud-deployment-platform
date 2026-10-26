@@ -58,6 +58,16 @@ class RateLimited(CloudPilotError):
     status_code = 429
     code = "RATE_LIMITED"
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: dict[str, Any] | list[Any] | None = None,
+        retry_after: int | None = None,
+    ) -> None:
+        super().__init__(message, details=details)
+        self.retry_after = retry_after
+
 
 class UpstreamError(CloudPilotError):
     status_code = 502
@@ -168,8 +178,10 @@ def _correlation_id(request: Request) -> str:
 
 async def handle_cloudpilot_error(request: Request, exc: Exception) -> JSONResponse:
     app_error = exc if isinstance(exc, CloudPilotError) else CloudPilotError(str(exc))
+    retry_after = getattr(app_error, "retry_after", None)
     return JSONResponse(
         status_code=app_error.status_code,
+        headers={"Retry-After": str(retry_after)} if retry_after else None,
         content=_error_payload(
             code=app_error.code,
             message=app_error.message,

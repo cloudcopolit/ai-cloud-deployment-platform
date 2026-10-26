@@ -12,7 +12,7 @@ class Approval(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "approvals"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('PENDING','APPROVED','REJECTED','EXPIRED')",
+            "status IN ('PENDING','APPROVED','REJECTED','EXPIRED','SUPERSEDED','CONSUMED')",
             name="ck_approvals_status",
         ),
     )
@@ -32,3 +32,7 @@ class Approval(UUIDPrimaryKeyMixin, Base):
         DateTime(timezone=True), server_default=func.now()
     )
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # ADR-029: an approval is for one exact plan, expires, and is used by one apply
+    plan_hash: Mapped[str | None] = mapped_column(String(64))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

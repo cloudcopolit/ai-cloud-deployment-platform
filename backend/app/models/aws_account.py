@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -30,3 +30,10 @@ class AWSAccount(UUIDPrimaryKeyMixin, Base):
         DateTime(timezone=True), server_default=func.now()
     )
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # onboarding (ADR-027) and the last verification's evidence (ADR-028)
+    state_bucket: Mapped[str | None] = mapped_column(String(63))
+    boundary_arn: Mapped[str | None] = mapped_column(Text)
+    onboarding_stack: Mapped[str | None] = mapped_column(String(128))
+    verified_identity_arn: Mapped[str | None] = mapped_column(Text)
+    external_id_enforced: Mapped[bool | None] = mapped_column(Boolean)
+    verification_message: Mapped[str | None] = mapped_column(Text)

@@ -10,6 +10,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,14 +18,31 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 from app.models.type import UUIDPrimaryKeyMixin
 
+# ADR-032. QUEUED / APPLY_QUEUED / DESTROY_QUEUED are claimable by the deploy runner.
+DEPLOYMENT_STATUSES = (
+    "QUEUED",
+    "PLANNING",
+    "AWAITING_APPROVAL",
+    "BLOCKED",
+    "APPLY_QUEUED",
+    "APPLYING",
+    "VERIFYING",
+    "SUCCESS",
+    "FAILED",
+    "TIMED_OUT",
+    "CANCELLED",
+    "DESTROY_QUEUED",
+    "DESTROYING",
+    "DESTROYED",
+    "DESTROY_FAILED",
+)
+DEPLOYMENT_STATUSES_SQL = ",".join(f"'{s}'" for s in DEPLOYMENT_STATUSES)
+
 
 class Deployment(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "deployments"
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('QUEUED','RUNNING','SUCCESS','FAILED','CANCELLED')",
-            name="ck_deployments_status",
-        ),
+        CheckConstraint(f"status IN ({DEPLOYMENT_STATUSES_SQL})", name="ck_deployments_status"),
         CheckConstraint(
             "trigger_type IN ('MANUAL','AUTO','RETRY','HEALING')",
             name="ck_deployments_trigger_type",
@@ -46,8 +64,27 @@ class Deployment(UUIDPrimaryKeyMixin, Base):
     aws_account_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("aws_accounts.id", ondelete="RESTRICT"), index=True
     )
-    status: Mapped[str] = mapped_column(String(16), default="QUEUED", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="QUEUED", index=True)
     trigger_type: Mapped[str] = mapped_column(String(16), default="MANUAL")
+    # what to deploy (ADR-025) and how (ingress CIDRs, OpenTofu variables snapshot)
+    image_uri: Mapped[str | None] = mapped_column(Text)
+    config: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
+    # plan (ADR-029/033): CloudPilot keeps hash, summary, cost and checks; the plan file
+    # itself stays in the customer's bucket
+    plan_hash: Mapped[str | None] = mapped_column(String(64))
+    plan_summary: Mapped[dict | None] = mapped_column(JSONB)
+    cost_estimate: Mapped[dict | None] = mapped_column(JSONB)
+    policy_results: Mapped[list | None] = mapped_column(JSONB)
+    outputs: Mapped[dict | None] = mapped_column(JSONB)
+    health: Mapped[dict | None] = mapped_column(JSONB)
+    destroy_check: Mapped[dict | None] = mapped_column(JSONB)
+    # CloudTrail session names used by this deployment's jobs
+    sessions: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    # runner job control (same pattern as analysis jobs, ADR-008)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    locked_by: Mapped[str | None] = mapped_column(String(64))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

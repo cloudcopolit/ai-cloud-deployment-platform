@@ -50,6 +50,8 @@ os.environ.update(
         "GITHUB_CLIENT_ID": "test-client-id",
         "GITHUB_CLIENT_SECRET": "test-client-secret",
         "GITHUB_REDIRECT_URI": "http://localhost:8000/auth/github/callback",
+        # per-IP limits would throttle this fast suite; tests/test_rate_limits.py turns them on
+        "RATE_LIMIT_ENABLED": "false",
     }
 )
 

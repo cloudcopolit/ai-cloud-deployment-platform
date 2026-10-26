@@ -258,6 +258,8 @@ export const ArchitecturePlanSchema = z.object({
   schema_version: z.string(),
   source_analysis_id: z.string(),
   region: z.string(),
+  archetype: z.string().nullable().optional(),
+  automated: z.boolean().default(false),
   components: z.array(PlanComponentSchema),
   assumptions: z
     .array(z.object({ statement: z.string(), impact: z.string(), confirmed_by_user: z.boolean().default(false) }))
@@ -317,3 +319,157 @@ export const LlmProviderSchema = z.object({
   error: z.string().nullable()
 })
 export type LlmProvider = z.infer<typeof LlmProviderSchema>
+
+/* ── AWS accounts and deployments (ADR-027..033) ── */
+
+export const AwsAccountSchema = z.object({
+  id: z.string(),
+  team_id: z.string(),
+  aws_account_id: z.string(),
+  role_arn: z.string().nullable(),
+  external_id: z.string(),
+  default_region: z.string(),
+  status: z.string(),
+  connected_at: z.string(),
+  last_verified_at: z.string().nullable(),
+  state_bucket: z.string().nullable(),
+  onboarding_stack: z.string().nullable(),
+  verified_identity_arn: z.string().nullable(),
+  external_id_enforced: z.boolean().nullable(),
+  verification_message: z.string().nullable()
+})
+export type AwsAccount = z.infer<typeof AwsAccountSchema>
+
+export const OnboardingSchema = z.object({
+  stack_name: z.string(),
+  region: z.string(),
+  role_arn: z.string(),
+  state_bucket: z.string(),
+  boundary_arn: z.string(),
+  external_id: z.string(),
+  platform_principal_arn: z.string(),
+  template: z.string(),
+  cli_command: z.string()
+})
+export type Onboarding = z.infer<typeof OnboardingSchema>
+
+export const EgressIpSchema = z.object({ ip: z.string(), cidr: z.string(), source: z.string() })
+
+const DeployStepSchema = z.object({
+  id: z.string(),
+  step_type: z.string(),
+  step_order: z.number(),
+  status: z.string(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+  output_data: z.record(z.string(), z.unknown()).nullable()
+})
+export type DeployStep = z.infer<typeof DeployStepSchema>
+
+export const ApprovalSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  approved_by: z.string().nullable(),
+  reason: z.string().nullable(),
+  decided_at: z.string().nullable(),
+  plan_hash: z.string().nullable(),
+  expires_at: z.string().nullable(),
+  consumed_at: z.string().nullable()
+})
+
+export const PolicyCheckSchema = z.object({ id: z.string(), passed: z.boolean(), message: z.string() })
+
+export const DeploymentSchema = z.object({
+  id: z.string(),
+  project_id: z.string(),
+  repository_id: z.string(),
+  architecture_version_id: z.string(),
+  aws_account_id: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+  created_by: z.string().nullable(),
+  image_uri: z.string().nullable(),
+  ingress_cidrs: z.array(z.string()).default([]),
+  region: z.string().nullable(),
+  plan_hash: z.string().nullable(),
+  plan_summary: z
+    .object({
+      add: z.number(),
+      change: z.number(),
+      destroy: z.number(),
+      resources: z.array(z.object({ address: z.string(), type: z.string(), action: z.string() })).default([]),
+      tofu_version: z.string().nullable().optional(),
+      plan_key: z.string().optional()
+    })
+    .nullable(),
+  cost_estimate: z
+    .object({
+      monthly_total: z.number(),
+      lines: z.array(z.object({ item: z.string(), monthly_usd: z.number(), basis: z.string() })).default([]),
+      pricing_as_of: z.string(),
+      source: z.string().optional(),
+      delta_note: z.string().optional()
+    })
+    .nullable(),
+  policy_results: z.array(PolicyCheckSchema).nullable(),
+  outputs: z.record(z.string(), z.unknown()).nullable(),
+  health: z
+    .object({
+      passed: z.boolean(),
+      url: z.string(),
+      attempts: z.number(),
+      status_code: z.number().nullable(),
+      latency_ms: z.number().nullable(),
+      body_excerpt: z.string().nullable(),
+      error: z.string().nullable(),
+      ecs_stable: z.boolean().nullable(),
+      log: z.array(z.string()).default([])
+    })
+    .nullable(),
+  destroy_check: z
+    .object({
+      clean: z.boolean(),
+      remaining: z.array(z.string()).default([]),
+      indexed_but_gone: z.array(z.string()).default([]),
+      deleted_task_definitions: z.number().default(0),
+      attempts: z.number().default(0),
+      remaining_in_state: z.number().optional(),
+      checked_at: z.string().optional()
+    })
+    .nullable(),
+  sessions: z.array(z.object({ action: z.string(), session_name: z.string(), at: z.string() })).default([]),
+  live_endpoint: z.string().nullable(),
+  terminal: z.boolean(),
+  steps: z.array(DeployStepSchema).default([]),
+  approval: ApprovalSchema.nullable(),
+  resources: z
+    .array(
+      z.object({
+        id: z.string(),
+        resource_type: z.string(),
+        resource_name: z.string(),
+        aws_resource_id: z.string().nullable(),
+        status: z.string()
+      })
+    )
+    .default([])
+})
+export type Deployment = z.infer<typeof DeploymentSchema>
+
+export const AuditEntrySchema = z.object({
+  id: z.string(),
+  created_at: z.string(),
+  action: z.string(),
+  actor_user_id: z.string().nullable(),
+  plan_hash: z.string().nullable(),
+  ip: z.string().nullable(),
+  details: z.record(z.string(), z.unknown()).default({}),
+  entry_hash: z.string()
+})
+export type AuditEntry = z.infer<typeof AuditEntrySchema>

@@ -14,6 +14,7 @@ from app.core.errors import (
     BadRequest,
     GitHubRateLimited,
     GitHubUnauthorized,
+    RepositoryNotFound,
     RepositoryTooLarge,
     UpstreamError,
 )
@@ -308,3 +309,38 @@ def test_access_status_counts_installations_without_permissions_as_unusable() ->
     assert (status.app_installations, status.app_installations_usable) == (2, 1)
     assert status.mode_for_public_repos == "ANONYMOUS"
     assert (status.rate_limit_remaining, status.rate_limit_limit) == (60, 60)
+
+
+def test_dev_mirror_serves_only_its_owner() -> None:
+    def real(request: httpx.Request) -> httpx.Response:
+        assert "cloudpilot-examples" not in request.url.path
+        return httpx.Response(404)
+
+    def mirror(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.lower() == "/repos/cloudpilot-examples/reference-app"
+        return httpx.Response(
+            200,
+            json={
+                "id": 900001,
+                "name": "reference-app",
+                "owner": {"login": "cloudpilot-examples"},
+                "html_url": "https://github.com/cloudpilot-examples/reference-app",
+                "default_branch": "main",
+                "private": False,
+                "size": 1,
+            },
+        )
+
+    mirror_client = GitHubClient(
+        api_url="http://mirror", raw_url="http://mirror/raw", transport=httpx.MockTransport(mirror)
+    )
+    client = GitHubClient(
+        api_url=API,
+        raw_url=RAW,
+        transport=httpx.MockTransport(real),
+        mirror=mirror_client,
+        mirror_owner="cloudpilot-examples",
+    )
+    assert client.get_repository("CloudPilot-Examples", "reference-app").name == "reference-app"
+    with pytest.raises(RepositoryNotFound):  # any other owner goes to GitHub (404 here)
+        client.get_repository("someone", "else")

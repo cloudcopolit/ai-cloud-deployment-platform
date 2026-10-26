@@ -33,6 +33,12 @@ services:
     profiles: [stack]
   frontend:
     profiles: [stack]
+  deploy-runner:
+    profiles: [stack]
+  egress-proxy:
+    profiles: [stack]
+  github-dev-mirror:
+    profiles: [stack]
 
   # Build contexts come from docker-compose.yml (repository root + backend/Dockerfile).
   backend-tests:

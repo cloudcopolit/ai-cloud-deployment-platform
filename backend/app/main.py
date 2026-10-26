@@ -16,6 +16,8 @@ from app.core.errors import (
 )
 from app.core.logging import RequestIDMiddleware, configure_logging
 from app.core.middleware import OriginSecurityMiddleware
+from app.core.ratelimit import IpRateLimitMiddleware
+from app.db.session import SessionLocal
 
 configure_logging()
 
@@ -23,6 +25,7 @@ app = FastAPI(title="CloudPilot")
 
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(OriginSecurityMiddleware)
+app.add_middleware(IpRateLimitMiddleware, session_factory=SessionLocal)
 app.add_exception_handler(CloudPilotError, handle_cloudpilot_error)
 app.add_exception_handler(StarletteHTTPException, handle_http_exception)
 app.add_exception_handler(RequestValidationError, handle_validation_error)

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     github_webhook_secret: str | None = None  # webhook endpoint answers 404 while unset
     github_api_url: str = "https://api.github.com"
     github_raw_url: str = "https://raw.githubusercontent.com"
+    # dev only: repositories of this owner come from a local mirror of examples/ (never in
+    # production); used to analyze CloudPilot's own reference app without a public repo
+    github_dev_mirror_url: str | None = None
+    github_dev_mirror_owner: str = "cloudpilot-examples"
 
     # Background jobs (ADR-008). Defaults follow 06 §3.5.
     job_timeout_s: int = Field(600, ge=10)
@@ -43,6 +47,17 @@ class Settings(BaseSettings):
     cloudpilot_aws_secret_access_key: str | None = None
     cloudpilot_aws_region: str = "us-east-1"
     cloudpilot_aws_endpoint_url: str | None = None  # LocalStack in tests; empty = real AWS
+
+    # Deployments (ADR-029/032/033)
+    deploy_monthly_cost_cap_usd: float = Field(100.0, gt=0)
+    deploy_approval_ttl_hours: int = Field(24, ge=1)
+    deploy_runner_stale_after_s: int = Field(300, ge=60)
+    deploy_job_timeout_s: int = Field(5400, ge=600)  # apply + RDS + health check
+
+    # Rate limits (ADR-031)
+    rate_limit_enabled: bool = True
+    rate_limit_ip_per_minute: int = Field(120, ge=1)
+    trusted_proxies: str = ""  # comma-separated peer IPs whose X-Forwarded-For is trusted
 
     # Language models (ADR-022). A provider without a key is never called (MOCKED-ONLY).
     llm_provider_priority: str = "anthropic,openai,gemini,xai"

@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
-import { Lock, ShieldCheck } from 'lucide-react'
+import Link from 'next/link'
+import { Lock, Rocket, ShieldCheck } from 'lucide-react'
 
 import { AgentAvatar } from '@/components/agents/agent-avatar'
 import { ArchitectureStudio } from '@/components/architecture/studio'
@@ -55,6 +56,7 @@ async function VersionContent({ params, searchParams }: { params: Params; search
   const repoId = analysis?.ok ? analysis.data.repository_id : null
   const repo = repoId ? await apiGet(`/repositories/${repoId}`, RepositorySchema) : null
   const basePath = repoId ? `/projects/${projectId}/repositories/${repoId}` : `/projects/${projectId}`
+  const deployHref = `/projects/${projectId}/deployments/new?arch=${architectureId}&v=${v.data.version_number}`
   const report = analysis?.ok ? analysis.data.report : null
   const context = {
     repository: repo?.ok ? `${repo.data.owner}/${repo.data.name}` : null,
@@ -78,7 +80,7 @@ async function VersionContent({ params, searchParams }: { params: Params; search
           <span className="flex flex-wrap items-center gap-2">
             {plan.components.length} components in {plan.region} · proposed {formatRelative(v.data.created_at)} ·
             status {v.data.status.toLowerCase()}
-            <CapabilityBadge level="SIMULATED" />
+            <CapabilityBadge level={plan.automated ? 'REAL' : 'SIMULATED'} />
           </span>
         }
       />
@@ -92,8 +94,12 @@ async function VersionContent({ params, searchParams }: { params: Params; search
             href: analysis?.ok ? `${basePath}/analyses/${analysis.data.id}` : undefined
           },
           { id: 'architecture', label: 'Architecture', state: 'current' },
-          { id: 'aws', label: 'AWS account', state: 'locked', reason: 'Being built (WORKLOG S5)' },
-          { id: 'deploy', label: 'Plan & deploy', state: 'locked', reason: 'Needs approval' }
+          plan.automated
+            ? { id: 'aws', label: 'AWS account', state: 'todo', href: '/aws' }
+            : { id: 'aws', label: 'AWS account', state: 'locked', reason: 'Plan is not automated' },
+          plan.automated
+            ? { id: 'deploy', label: 'Plan & deploy', state: 'todo', href: deployHref }
+            : { id: 'deploy', label: 'Plan & deploy', state: 'locked', reason: 'Plan is not automated' }
         ]}
       />
 
@@ -113,11 +119,19 @@ async function VersionContent({ params, searchParams }: { params: Params; search
         </dl>
       </section>
 
+      {plan.automated ? (
+        <Notice tone="success" title={`Deterministic plan for the ${plan.archetype ?? 'automated'} archetype`}>
+          Every component comes from a fixed pattern that CloudPilot can deploy end to end, sized to the smallest that
+          works. Costs come from the AWS Price List (pricing as of {plan.cost.pricing_as_of}); the traffic and log
+          quantities they assume are listed under Assumptions.
+        </Notice>
+      ) : (
       <Notice tone="warning" title="Prototype architect: same template for every repository">
         This version comes from the template-based prototype (container on ECS Fargate behind a load balancer, plus
         PostgreSQL when one is detected). Its costs are fixed illustrative figures, not prices from the AWS Price
         List. The real Architect agent is WORKLOG slice S4.
       </Notice>
+      )}
 
       <section aria-labelledby="diagram" className="space-y-3">
         <h2 id="diagram" className="font-display text-lg font-semibold">
@@ -194,18 +208,40 @@ async function VersionContent({ params, searchParams }: { params: Params; search
         </section>
       ) : null}
 
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-dashed p-5">
-        <div className="flex items-start gap-3">
-          <Lock className="mt-0.5 size-5 text-muted-foreground" aria-hidden />
-          <div>
-            <p className="font-medium">Next: connect an AWS account</p>
-            <p className="text-sm text-muted-foreground">
-              Cross-account role with an External ID, verified with STS. Not built yet (WORKLOG S5).
-            </p>
+      {plan.automated ? (
+        <section className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl border border-primary/40 bg-card p-5">
+          <div aria-hidden className="bg-brand-gradient absolute inset-x-0 top-0 h-1" />
+          <div className="flex items-start gap-3">
+            <Rocket className="mt-0.5 size-5 text-primary" aria-hidden />
+            <div>
+              <p className="font-medium">Next: plan the deployment</p>
+              <p className="text-sm text-muted-foreground">
+                OpenTofu plans this design in your AWS account and shows every resource and its cost. Nothing is created
+                until an ADMIN or OWNER approves that exact plan.
+              </p>
+            </div>
           </div>
-        </div>
-        <CapabilityBadge level="MISSING" />
-      </section>
+          <Link
+            href={deployHref}
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Deploy this architecture
+          </Link>
+        </section>
+      ) : (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-dashed p-5">
+          <div className="flex items-start gap-3">
+            <Lock className="mt-0.5 size-5 text-muted-foreground" aria-hidden />
+            <div>
+              <p className="font-medium">Not deployable yet</p>
+              <p className="text-sm text-muted-foreground">
+                CloudPilot deploys automated archetypes only (today: one HTTP service with a Dockerfile plus PostgreSQL).
+              </p>
+            </div>
+          </div>
+          <CapabilityBadge level="SIMULATED" />
+        </section>
+      )}
     </>
   )
 }
@@ -277,14 +313,15 @@ function CostCard({ plan }: { plan: ArchitecturePlan }) {
         <h2 id="cost" className="font-semibold">
           Monthly estimate
         </h2>
-        <CapabilityBadge level="SIMULATED" />
+        <CapabilityBadge level={plan.automated ? 'REAL' : 'SIMULATED'} />
       </div>
       <p className="font-display text-3xl font-semibold">
         {formatUsd(plan.cost.monthly_total)}
         <span className="text-sm font-normal text-muted-foreground"> /month</span>
       </p>
       <p className="text-xs text-muted-foreground">
-        Illustrative prototype figures · pricing as of {plan.cost.pricing_as_of} · confidence{' '}
+        {plan.automated ? 'AWS Price List, on-demand' : 'Illustrative prototype figures'} · pricing as of{' '}
+        {plan.cost.pricing_as_of} · confidence{' '}
         {Math.round(plan.cost.confidence * 100)}%
       </p>
       <ul className="divide-y text-sm">

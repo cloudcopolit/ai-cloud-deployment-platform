@@ -32,6 +32,8 @@ x-backend-environment: &backend-environment
   LANGSMITH_TRACING: "false"
   LANGCHAIN_TRACING_V2: "false"
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  # Dev only: owner cloudpilot-examples is served by github-dev-mirror (examples/); empty = off.
+  GITHUB_DEV_MIRROR_URL: ${GITHUB_DEV_MIRROR_URL:-}
   # Priced, deployable architecture patterns (ADR-023); off by default (prototype only).
   ARCHITECT_AUTOMATED_ARCHETYPES: ${ARCHITECT_AUTOMATED_ARCHETYPES:-false}
   # CloudPilot's own AWS identity (ADR-028), never the LocalStack values below. Empty =
@@ -64,6 +66,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    # also on the deploy runner's internal network (its only reachable service besides the proxy)
+    networks: [default, deploy-net]
 
   localstack:
     image: localstack/localstack:3.7.2
@@ -140,6 +144,57 @@ services:
     command: ["python", "-m", "app.jobs.worker"]
     stop_grace_period: 30s
 
+  # Deploy runner (ADR-026): runs one OpenTofu job per container lifetime, then exits and is
+  # restarted fresh. Read-only root, work dir on tmpfs, no Docker socket, and no direct
+  # internet: its only network is internal; AWS is reached through the egress proxy.
+  deploy-runner:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: deploy-runner
+    container_name: cloudpilot-deploy-runner
+    environment:
+      <<: *backend-environment
+      RUN_MIGRATIONS: "false"
+      AWS_ENDPOINT_URL: ""
+      HTTPS_PROXY: http://egress-proxy:3128
+      HTTP_PROXY: http://egress-proxy:3128
+      NO_PROXY: db,localhost,127.0.0.1
+    networks: [deploy-net]
+    read_only: true
+    tmpfs:
+      - /tmp:size=3g,mode=1777
+    depends_on:
+      backend:
+        condition: service_healthy
+      egress-proxy:
+        condition: service_started
+    restart: always
+    stop_grace_period: 120s
+
+  # Dev only: serves examples/<app> as the GitHub repository cloudpilot-examples/<app>, so
+  # CloudPilot's own reference app can be analyzed without a public repository. It reuses the
+  # end-to-end fake GitHub server's code read-only.
+  github-dev-mirror:
+    image: python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+    container_name: cloudpilot-github-dev-mirror
+    command: ["python", "-I", "/mirror/server.py", "8080"]
+    volumes:
+      - ./e2e/fake_github:/fake:ro
+      - ./docker/dev-mirror:/mirror:ro
+      - ./examples:/examples:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/rate_limit', timeout=3)"]
+      interval: 5s
+      retries: 20
+
+  # The runner's only way out: *.amazonaws.com and nothing else (docker/egress-proxy).
+  egress-proxy:
+    build: ./docker/egress-proxy
+    container_name: cloudpilot-egress-proxy
+    networks: [default, deploy-net]
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -205,3 +260,9 @@ services:
 volumes:
   db-data:
   localstack-data:
+
+networks:
+  default: {}
+  # internal: no route out; the deploy runner reaches AWS only via egress-proxy
+  deploy-net:
+    internal: true
