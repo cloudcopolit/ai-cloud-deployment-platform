@@ -24,8 +24,15 @@ select = [
 [lint.per-file-ignores]
 # Tests use plain asserts and deliberately hard-coded, fake credentials.
 "**/tests/**" = ["S101", "S105", "S106"]
+# Auto-generated migrations can have long lines.
+"**/alembic/versions/**" = ["E501"]
 # CI helper scripts run `git` from PATH with fixed arguments by design.
 ".github/scripts/**" = ["S603", "S607"]
+# The AI contracts module keeps its documented `python contracts.py` self-check (asserts),
+# and Generic[T] for pydantic generic models.
+"ai/src/cloudpilot_ai/contracts.py" = ["S101", "PT017", "UP046"]
+"project_context/contracts/ai_contracts.py" = ["S101", "PT017", "UP046", "E501"]
+
 
 [lint.isort]
 # Both the backend and the AI services use `app` as their top-level package.
