@@ -1,0 +1,73 @@
+# End-to-end overlay: the full stack against a fake GitHub, isolated from the dev stack.
+#
+#   docker compose -p cloudpilot-e2e -f docker-compose.yml -f docker-compose.e2e.yml \
+#     --env-file .env.example up -d --build --wait
+#   cd frontend && E2E_BASE_URL=http://localhost:3100 pnpm test:e2e
+#
+# scripts/e2e.sh does all of it (and tears the stack down). Ports: frontend 3100, API 8100.
+
+services:
+  db:
+    container_name: !reset null
+    ports: !reset []
+    volumes: !reset []
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  localstack:
+    container_name: !reset null
+    ports: !reset []
+    volumes: !override
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fake-github:
+    image: python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+    command: ["python", "-I", "/fake/server.py", "8080"]
+    volumes:
+      - ./e2e/fake_github:/fake:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/rate_limit', timeout=3)"]
+      interval: 3s
+      retries: 20
+
+  backend:
+    container_name: !reset null
+    ports: !override
+      - "8100:8000"
+    environment: &e2e-backend
+      ENVIRONMENT: development
+      SEED_DEV_DATA: "true"
+      FRONTEND_URL: http://localhost:3100
+      GITHUB_API_URL: http://fake-github:8080
+      GITHUB_RAW_URL: http://fake-github:8080/raw
+      GITHUB_TOKEN: ""
+      GITHUB_APP_ID: ""
+      GITHUB_WEBHOOK_SECRET: e2e-webhook-secret
+    depends_on:
+      fake-github:
+        condition: service_healthy
+
+  worker:
+    container_name: !reset null
+    environment:
+      <<: *e2e-backend
+      RUN_MIGRATIONS: "false"
+      WORKER_POLL_INTERVAL_S: "0.5"
+
+  frontend:
+    container_name: !reset null
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8100
+    ports: !override
+      - "3100:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8100
+      DEV_LOGIN_ENABLED: "true"
+
+  migrate:
+    container_name: !reset null
+  backend-tests:
+    container_name: !reset null
+  frontend-tests:
+    container_name: !reset null

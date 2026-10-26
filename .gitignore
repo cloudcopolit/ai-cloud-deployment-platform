@@ -76,3 +76,18 @@ pgdata/
 *.tmp
 *.temp
 *.bak
+
+# =========================
+# Real-AWS test runs (screenshots show the account id and the owner's IP)
+# =========================
+test-runs/
+
+# AWS credentials exported from the console, wherever they land
+*accessKeys*.csv
+*_credentials.csv
+
+# OpenTofu / Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan

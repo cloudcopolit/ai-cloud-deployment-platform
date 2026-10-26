@@ -1,0 +1,11 @@
+# OpenTofu CLI config for the deploy runner (ADR-026): providers come only from the mirror
+# baked into the image; the registry is never contacted at run time.
+provider_installation {
+  filesystem_mirror {
+    path    = "/opt/tofu/providers"
+    include = ["registry.opentofu.org/*/*"]
+  }
+  direct {
+    exclude = ["registry.opentofu.org/*/*"]
+  }
+}
