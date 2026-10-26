@@ -15,10 +15,23 @@ from sqlalchemy.engine import make_url
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg://cloudpilot:cloudpilot@localhost:5432/cloudpilot_test",
-)
+
+def _default_test_db_url() -> str:
+    env_file = BACKEND_DIR / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("DATABASE_URL="):
+                val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                u = make_url(val)
+                db_name = u.database or "cloudpilot"
+                test_db = db_name if db_name.endswith("_test") else f"{db_name}_test"
+                return u.set(database=test_db).render_as_string(hide_password=False)
+    return "postgresql+psycopg://cloudpilot:cloudpilot@172.23.9.99:5432/cloudpilot_test"
+
+
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or _default_test_db_url()
+
 
 if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
     raise RuntimeError(
@@ -37,6 +50,8 @@ os.environ.update(
         "GITHUB_CLIENT_ID": "test-client-id",
         "GITHUB_CLIENT_SECRET": "test-client-secret",
         "GITHUB_REDIRECT_URI": "http://localhost:8000/auth/github/callback",
+        # per-IP limits would throttle this fast suite; tests/test_rate_limits.py turns them on
+        "RATE_LIMIT_ENABLED": "false",
     }
 )
 
@@ -48,7 +63,9 @@ from sqlalchemy import Engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.db.session import engine, get_db  # noqa: E402
+from app.integrations.github_app import get_github_client  # noqa: E402
 from app.main import app  # noqa: E402
+from tests.fakes import FakeGitHub  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -89,3 +106,17 @@ def client(db_session: Session) -> Iterator[TestClient]:
             yield test_client
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def fake_github() -> Iterator[FakeGitHub]:
+    """Every test gets an empty in-memory GitHub, so no test can reach the real one.
+    Tests that need repositories add them: ``fake_github.add_repo("o", "r")``."""
+    fake = FakeGitHub()
+    github_client = fake.client()
+    app.dependency_overrides[get_github_client] = lambda: github_client
+    try:
+        yield fake
+    finally:
+        app.dependency_overrides.pop(get_github_client, None)
+        github_client.close()

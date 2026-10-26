@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -9,10 +9,15 @@ from app.models.type import UUIDPrimaryKeyMixin
 
 
 class Commit(UUIDPrimaryKeyMixin, Base):
-    """Only commits from the deployment branch are recorded."""
+    """A commit CloudPilot has seen: listed for a branch picker, pushed to the deployment branch
+    (webhook) or analyzed. ``branch_id`` is the branch it was first seen on; a SHA is stored once
+    per repository."""
 
     __tablename__ = "commits"
-    __table_args__ = (UniqueConstraint("repository_id", "sha"),)
+    __table_args__ = (
+        UniqueConstraint("repository_id", "sha"),
+        Index("ix_commits_repository_id_committed_at", "repository_id", "committed_at"),
+    )
 
     repository_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("repositories.id", ondelete="RESTRICT"), index=True

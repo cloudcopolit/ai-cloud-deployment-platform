@@ -1,12 +1,35 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.dependencies import DbSession
+from app.core.errors import (
+    CloudPilotError,
+    handle_cloudpilot_error,
+    handle_http_exception,
+    handle_unexpected_error,
+    handle_validation_error,
+)
+from app.core.logging import RequestIDMiddleware, configure_logging
+from app.core.middleware import OriginSecurityMiddleware
+from app.core.ratelimit import IpRateLimitMiddleware
+from app.db.session import SessionLocal
+
+configure_logging()
 
 app = FastAPI(title="CloudPilot")
+
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(OriginSecurityMiddleware)
+app.add_middleware(IpRateLimitMiddleware, session_factory=SessionLocal)
+app.add_exception_handler(CloudPilotError, handle_cloudpilot_error)
+app.add_exception_handler(StarletteHTTPException, handle_http_exception)
+app.add_exception_handler(RequestValidationError, handle_validation_error)
+app.add_exception_handler(Exception, handle_unexpected_error)
 
 app.include_router(api_router)
 app.add_middleware(
