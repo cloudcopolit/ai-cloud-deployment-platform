@@ -185,4 +185,3 @@ jobs:
           echo "sts.amazonaws.com -> ${sts}; example.com -> ${other}"
           test "$sts" != "000"
           test "$other" = "000"
-
