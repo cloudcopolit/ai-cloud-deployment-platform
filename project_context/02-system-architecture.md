@@ -100,7 +100,7 @@ Docker:  postgres:16 (cloudpilot-db, :5432)
 Host:    uvicorn app.main:app  (:8000)   ←→   Next.js (:3000)
 ```
 
-### 5.2 Target for the graduation demo 💡
+### 5.2 Target for the first release 💡
 ```mermaid
 flowchart LR
     u([Users]) --> cf[app.example.com<br/>frontend]

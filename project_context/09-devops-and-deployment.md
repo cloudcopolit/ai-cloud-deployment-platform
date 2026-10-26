@@ -100,7 +100,7 @@ flowchart LR
 | local | development | seed data | none (mock STS/GitHub with fakes) |
 | CI | tests | ephemeral `*_test` DB | none |
 | staging | demo rehearsal, integration with **real GitHub App + a sandbox AWS account** | fake teams | dedicated sandbox account(s) |
-| production | graduation demo / pilot users | real | customers' accounts via roles |
+| production | first release / pilot users | real | customers' accounts via roles |
 
 Never point staging at production DB or production GitHub App. Use separate GitHub OAuth apps per environment (the redirect URI differs).
 
@@ -110,7 +110,7 @@ Frontend `app.<domain>` and API `api.<domain>` share the **parent domain** (cook
 
 | Option | Pros | Cons | Use when |
 |---|---|---|---|
-| **A. One EC2/VM + Docker Compose** (api, worker, reverse proxy with TLS; RDS or compose PG) | cheapest, simplest to debug | single point of failure | graduation demo |
+| **A. One EC2/VM + Docker Compose** (api, worker, reverse proxy with TLS; RDS or compose PG) | cheapest, simplest to debug | single point of failure | first release |
 | **B. ECS Fargate (api + worker services) + RDS + ALB** | closer to what CloudPilot recommends to customers ("eat your own dog food") | more setup/cost | pilot, if time allows |
 
 Dogfooding is a strong demo: **deploy CloudPilot's own backend with CloudPilot** (it is also the first golden fixture for the Analysis Agent).

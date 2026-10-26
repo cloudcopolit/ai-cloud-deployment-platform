@@ -7,14 +7,14 @@
 | # | Question | Why it matters | Recommendation 💡 | Owner | Needed by |
 |---|---|---|---|---|---|
 | **Q-1** | Where does the AI layer live (sibling package vs separate service) and where do shared contracts live? | import rules, CI, deploy | sibling `ai/` package, in-process, shared `contracts` package (ADR-009/018) | AI + Backend | before A1 |
-| **Q-2** | Which LLM provider/model, and what may be sent to it (code excerpts)? Retention and privacy statement? | cost, quality, customer trust | one provider behind an adapter; send only redacted excerpts; document it in the UI | AI lead | before A2.6 |
-| **Q-3** | Can the same GitHub repo be connected to several projects (code: yes, ERD: global unique)? | `repositories` uniqueness, webhooks routing | allow per project (current code) and route webhooks by `github_repository_id` → many repos | Backend | before B2.2 |
+| ~~Q-2~~ | **Closed by ADR-022 (2026-10-26):** four providers behind one gateway; redacted excerpts only, for two ambiguity questions; provider retention statement still to publish. | | | AI lead | done |
+| ~~Q-3~~ | **Closed by ADR-021 (2026-10-25):** the same GitHub repository may be connected to several projects; webhooks fan out. | | | Backend | done |
 | **Q-4** | Team invitations: add by GitHub username only, or invite by email with accept flow? | `teams` module scope | MVP: add existing users by GitHub username; invites later | Backend/Product | before B1.3 |
 | **Q-5** | Is AWS discovery of existing infrastructure part of the MVP (brief diagram shows it)? Where are findings stored? | extra IAM role, extra complexity | defer; if needed store in `analysis_data` (no new table) | AI + Product | before A3.4 |
 | **Q-6** | Where does the Terraform runner execute (ECS one-off task, CodeBuild, local container for demo)? | isolation, cost, demo simplicity | local sandbox container for demo; ECS task/CodeBuild for pilot | Backend/DevOps | before D6 |
 | **Q-7** | Which stacks are officially supported in the MVP? | defines `UNSUPPORTED_STACK`, fixtures, templates | Python (FastAPI/Django/Flask), Node (Express/Next.js), Dockerfile-based apps; others → BLOCKED with explanation | Team | before A2.3 |
 | **Q-8** | Deployment patterns for MVP (ECS Fargate + ALB + RDS only, or also Lambda/static S3+CloudFront)? | size of Architecture Agent and Terraform templates | start with 2: static site, container + RDS | Team | before A4.1 |
-| **Q-9** | Billing: real payments (Stripe) or plans only as limits? | scope | limits only for the graduation scope | Product | before B1.4 |
+| **Q-9** | Billing: real payments (Stripe) or plans only as limits? | scope | limits only for the first release | Product | before B1.4 |
 | **Q-10** | Monitoring stack for Phase 3: Prometheus, CloudWatch, or both? | what runs in the customer account | CloudWatch first (no extra infra in customer account) | Team | Phase 3 |
 | **Q-11** | Does a push to the deployment branch trigger an analysis automatically? Auto-deploy ever? | cost, safety | analysis on push optional per project; **no auto-deploy** without explicit opt-in + approval | Product | B2.3 |
 | **Q-12** | Region(s) and data residency for CloudPilot itself and for default customer deployments | latency, compliance | one region; customer region chosen per AWS account | Team | before D1 |
