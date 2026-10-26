@@ -4,6 +4,7 @@
 #   test    - source + `vitest run` (docker-compose.test.yml)
 #   build   - production build; NEXT_PUBLIC_API_URL is inlined here
 #   runtime - production dependencies + build output, runs as `node` (default target)
+# Every stage that runs project code runs as the image's `node` user, never as root.
 
 FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS base
 
@@ -15,26 +16,28 @@ WORKDIR /app
 
 FROM base AS deps
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN chown node:node /app
+USER node
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 
 FROM deps AS dev
 
-COPY . .
+COPY --chown=node:node . .
 EXPOSE 3000
 CMD ["pnpm", "dev", "--hostname", "0.0.0.0"]
 
 
 FROM deps AS test
 
-COPY . .
+COPY --chown=node:node . .
 CMD ["pnpm", "test"]
 
 
 FROM deps AS build
 
-COPY . .
+COPY --chown=node:node . .
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN pnpm build

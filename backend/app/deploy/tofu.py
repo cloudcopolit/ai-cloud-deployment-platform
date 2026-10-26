@@ -22,7 +22,8 @@ from typing import Any
 from app.deploy.aws import TempCredentials
 
 STACKS_DIR = Path(os.environ.get("CLOUDPILOT_STACKS_DIR", "/opt/cloudpilot/opentofu/stacks"))
-TOFU = os.environ.get("TOFU_BIN", "tofu")
+# Fixed name, resolved on the runner image's PATH; never taken from the environment.
+TOFU = "tofu"
 PASSTHROUGH = (
     "PATH",
     "TF_CLI_CONFIG_FILE",

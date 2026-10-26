@@ -9,8 +9,9 @@ resource "aws_db_subnet_group" "this" {
 }
 
 # Sandbox settings (shown as risks in the plan): no backups, no final snapshot, no deletion
-# protection, so destroy leaves nothing behind (ADR-024).
-resource "aws_db_instance" "this" {
+# protection, so destroy leaves nothing behind (ADR-024). No log export either: RDS would
+# create its log group itself, outside the state, and it would outlive destroy.
+resource "aws_db_instance" "this" { # nosemgrep: terraform.aws.security.aws-rds-backup-no-retention.aws-rds-backup-no-retention, terraform.aws.security.aws-db-instance-no-logging.aws-db-instance-no-logging
   identifier                 = "${var.name_prefix}-db"
   engine                     = "postgres"
   engine_version             = var.db_engine_version

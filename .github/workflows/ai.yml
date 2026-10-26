@@ -1,8 +1,8 @@
 name: AI
 
 on:
+  # every pull request, including stacked PRs whose base is another feature branch
   pull_request:
-    branches: [main, dev, testing]
   push:
     branches: [main, dev, testing]
   workflow_dispatch:
