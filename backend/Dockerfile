@@ -3,7 +3,8 @@
 #   base    - runtime dependencies and application code
 #   test    - base + development tooling and tests
 #   runtime - final image used by development and production (default target)
-#   deploy-runner - runtime + pinned OpenTofu + provider mirror + the module library (ADR-026)
+#   tofu-tools    - pinned OpenTofu + provider mirror/cache (depends only on provider pins)
+#   deploy-runner - base + tofu-tools + the module library (ADR-026)
 
 FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS base
 
@@ -44,7 +45,9 @@ USER 10001
 CMD ["python", "-m", "pytest", "-p", "no:cacheprovider", "--cov"]
 
 
-FROM base AS deploy-runner
+# OpenTofu and its providers, in a stage that depends only on the pinned provider versions, so
+# application or module edits never re-download the (large) AWS provider.
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS tofu-tools
 
 # OpenTofu, pinned and checked against the release's published SHA-256.
 ADD --checksum=sha256:40c9743977873a6d0ca4f273914588a20fb923c015deb6c4fe36f65575ee2b1c \
@@ -52,17 +55,26 @@ ADD --checksum=sha256:40c9743977873a6d0ca4f273914588a20fb923c015deb6c4fe36f65575
     /tmp/tofu.tgz
 RUN tar -xzf /tmp/tofu.tgz -C /usr/local/bin tofu && rm /tmp/tofu.tgz && tofu version
 
-# The fixed module library (read-only), a provider mirror, and an unpacked plugin cache that
-# jobs link to: runs never reach a registry, and providers execute from the image because the
-# job work dir is a noexec tmpfs.
-COPY infrastructure/opentofu /opt/cloudpilot/opentofu
+# A provider mirror plus an unpacked plugin cache that jobs link to: runs never reach a
+# registry, and providers execute from the image because the job work dir is a noexec tmpfs.
+# The lock file generated here ships with the stack, so the cache is used (not copied).
 COPY docker/deploy-runner/tofurc /opt/tofu/tofurc
+COPY infrastructure/opentofu/stacks/container-postgres/versions.tf /opt/tofu/pin/versions.tf
 RUN mkdir -p /opt/tofu/plugin-cache \
-    && cd /opt/cloudpilot/opentofu/stacks/container-postgres \
+    && cd /opt/tofu/pin \
     && tofu providers mirror -platform=linux_amd64 /opt/tofu/providers \
     && TF_CLI_CONFIG_FILE=/opt/tofu/tofurc TF_PLUGIN_CACHE_DIR=/opt/tofu/plugin-cache \
        tofu init -backend=false -input=false \
     && rm -rf .terraform
+
+
+FROM base AS deploy-runner
+
+COPY --from=tofu-tools /usr/local/bin/tofu /usr/local/bin/tofu
+COPY --from=tofu-tools /opt/tofu /opt/tofu
+# The fixed module library (read-only), with the provider lock file generated above.
+COPY infrastructure/opentofu /opt/cloudpilot/opentofu
+RUN cp /opt/tofu/pin/.terraform.lock.hcl /opt/cloudpilot/opentofu/stacks/container-postgres/
 
 ENV TF_CLI_CONFIG_FILE=/opt/tofu/tofurc \
     TF_PLUGIN_CACHE_DIR=/opt/tofu/plugin-cache \

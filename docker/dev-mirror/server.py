@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zlib
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def _files(root: Path) -> dict[str, str]:
 
 def _repos(examples: Path) -> dict[str, dict]:
     repos: dict[str, dict] = {}
-    for i, directory in enumerate(sorted(p for p in examples.iterdir() if p.is_dir()), start=1):
+    for directory in sorted(p for p in examples.iterdir() if p.is_dir()):
         full = f"{OWNER}/{directory.name}"
         files = _files(directory)
         sha = fake._sha(f"{full}/main/0/{json.dumps(files, sort_keys=True)}")
@@ -53,7 +54,8 @@ def _repos(examples: Path) -> dict[str, dict]:
         repos[full.lower()] = {
             "owner": OWNER,
             "name": directory.name,
-            "id": 900_000 + i,
+            # far above real GitHub ids (~1.4e9 in 2026) and any seeded fake ids
+            "id": 8_000_000_000 + zlib.crc32(full.encode()) % 1_000_000,
             "default_branch": "main",
             "branches": {"main": [commit]},
             "trees": {sha: files},
