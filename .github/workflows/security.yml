@@ -1,8 +1,8 @@
 name: Security
 
 on:
+  # every pull request, including stacked PRs whose base is another feature branch
   pull_request:
-    branches: [main, dev, testing]
   push:
     branches: [main, dev, testing]
   schedule:
@@ -99,3 +99,28 @@ jobs:
       - name: Audit frontend dependencies (pnpm audit)
         working-directory: frontend
         run: pnpm audit --audit-level high
+
+  # Static analysis of the source. CodeQL needs GitHub Advanced Security, which this private
+  # repository (GitHub Free) does not have; Semgrep runs the equivalent rule packs in a pinned
+  # container with metrics off, and any finding fails the job. Reviewed exceptions are inline
+  # `nosemgrep: <rule-id>` comments with a reason. e2e/fake_github is a test double that the
+  # E2E contract keeps unchanged (it fakes git's SHA-1 object ids), so it is not scanned.
+  sast:
+    name: Static analysis (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan Python, TypeScript, Dockerfiles and OpenTofu (Semgrep)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src \
+            semgrep/semgrep:1.181.0@sha256:81474464c1f07483ba0682a44787fd93c91397419762a04abe2bafaae396304b \
+            semgrep scan --metrics=off --error --disable-version-check \
+              --config p/python --config p/typescript --config p/react \
+              --config p/dockerfile --config p/terraform \
+              --exclude node_modules --exclude .next --exclude test-runs \
+              --exclude e2e/fake_github

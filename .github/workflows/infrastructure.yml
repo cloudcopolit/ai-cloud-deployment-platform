@@ -1,11 +1,12 @@
 name: Infrastructure
 
-# Validation only. This workflow never runs `terraform plan/apply`, never
-# configures a remote backend, and never receives cloud credentials.
+# Validation only. This workflow never runs `tofu plan/apply`, never configures a remote
+# backend, and never receives cloud credentials. Real deployments run only through the
+# deploy runner after a human approval (ADR-026/029); the real-AWS flow never runs in CI.
 
 on:
+  # every pull request, including stacked PRs whose base is another feature branch
   pull_request:
-    branches: [main, dev, testing]
   push:
     branches: [main, dev, testing]
   workflow_dispatch:
@@ -52,28 +53,31 @@ jobs:
             echo "Found ${count} ${kind}:"; sed 's/^/  /' "$RUNNER_TEMP/$kind"
           done
 
-      - name: Report missing Terraform configuration
+      - name: Report missing OpenTofu configuration
         if: steps.detect.outputs.terraform-dirs == '0'
-        run: echo "::notice::No Terraform (*.tf) files exist yet; Terraform checks were skipped."
+        run: echo "::notice::No OpenTofu (*.tf) files exist yet; OpenTofu checks were skipped."
 
-      - name: Set up Terraform
+      # The same OpenTofu release the deploy runner uses (ADR-026), checked against its SHA-256.
+      - name: Set up OpenTofu 1.10.9
         if: steps.detect.outputs.terraform-dirs != '0'
-        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_version: 1.16.5
-          terraform_wrapper: false
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tofu.tgz"             https://github.com/opentofu/opentofu/releases/download/v1.10.9/tofu_1.10.9_linux_amd64.tar.gz
+          echo "40c9743977873a6d0ca4f273914588a20fb923c015deb6c4fe36f65575ee2b1c  $RUNNER_TEMP/tofu.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/tofu.tgz" -C "$RUNNER_TEMP/bin" tofu
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: Check Terraform formatting
+      - name: Check OpenTofu formatting
         if: steps.detect.outputs.terraform-dirs != '0'
-        run: terraform fmt -check -recursive -diff
+        run: tofu fmt -check -recursive -diff
 
-      - name: Validate Terraform (no backend, no credentials)
+      - name: Validate OpenTofu (no backend, no credentials)
         if: steps.detect.outputs.terraform-dirs != '0'
         run: |
           while read -r dir; do
-            echo "::group::terraform validate ${dir}"
-            terraform -chdir="$dir" init -backend=false -input=false -no-color
-            terraform -chdir="$dir" validate -no-color
+            echo "::group::tofu validate ${dir}"
+            tofu -chdir="$dir" init -backend=false -input=false -no-color
+            tofu -chdir="$dir" validate -no-color
             echo "::endgroup::"
           done < "$RUNNER_TEMP/terraform-dirs"
 
@@ -83,7 +87,7 @@ jobs:
         with:
           tflint_version: v0.64.0
 
-      - name: Lint Terraform (TFLint)
+      - name: Lint OpenTofu modules (TFLint)
         if: steps.detect.outputs.terraform-dirs != '0'
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -126,3 +130,59 @@ jobs:
           docker run --rm -v "$PWD:/repo:ro" -w /repo
           aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
           config --exit-code 1 --severity HIGH,CRITICAL --skip-dirs '**/node_modules' --skip-version-check .
+
+  deploy-runner:
+    name: Deploy runner image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the deploy-runner image
+        run: docker build -f backend/Dockerfile --target deploy-runner -t cloudpilot-deploy-runner:ci .
+
+      # The runner's own conditions: read-only root, noexec tmpfs, no network, non-root.
+      - name: Validate the stack inside the runner, offline
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp:size=1g,mode=1777             --entrypoint sh cloudpilot-deploy-runner:ci -c '
+              set -e
+              test "$(id -u)" != 0
+              cp -r /opt/cloudpilot/opentofu/stacks/container-postgres /tmp/w && cd /tmp/w
+              tofu init -backend=false -input=false -no-color > /tmp/init.log
+              grep -q "from the shared cache directory" /tmp/init.log
+              tofu validate -no-color
+              test "$(du -s .terraform | cut -f1)" -lt 1024   # providers linked, not copied
+              echo "runner OK: uid $(id -u), offline init + validate"'
+
+  egress-proxy:
+    name: Egress proxy allowlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and start the proxy
+        run: |
+          docker build -t cloudpilot-egress-proxy:ci docker/egress-proxy
+          docker network create egress-ci
+          docker run -d --name proxy --network egress-ci cloudpilot-egress-proxy:ci
+          sleep 2
+
+      # *.amazonaws.com goes through; anything else is refused.
+      - name: Allowed and refused destinations
+        run: |
+          curl_via() {
+            docker run --rm --network egress-ci               curlimages/curl:8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69               -s -o /dev/null -m 20 -w "%{http_code}" -x http://proxy:3128 "$1" || true
+          }
+          sts=$(curl_via https://sts.amazonaws.com/)
+          other=$(curl_via https://example.com/)
+          echo "sts.amazonaws.com -> ${sts}; example.com -> ${other}"
+          test "$sts" != "000"
+          test "$other" = "000"
+

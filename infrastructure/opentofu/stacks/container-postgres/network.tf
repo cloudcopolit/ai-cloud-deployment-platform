@@ -94,6 +94,10 @@ resource "aws_vpc_security_group_ingress_rule" "task_from_alb" {
 }
 
 # The task pulls its image and reaches AWS APIs over HTTPS, and the database over 5432.
+# HTTPS egress is open because there is no NAT gateway and no VPC endpoints (ADR-024): ECR,
+# Secrets Manager and CloudWatch Logs are reached on their public endpoints. Ingress stays
+# limited to the load balancer.
+# trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "task_https" {
   security_group_id = aws_security_group.task.id
   cidr_ipv4         = "0.0.0.0/0"
