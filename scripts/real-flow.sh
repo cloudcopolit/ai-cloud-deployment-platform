@@ -39,7 +39,19 @@ echo "    image $IMAGE_URI"
 node scripts/real-flow-report.mjs changes "$RUN_DIR"
 
 echo "==> dev stack (backend, worker, deploy runner, egress proxy, dev mirror, frontend)"
-docker compose up -d --build --wait
+# Registry and package downloads can time out on a slow network: retry the build, and write
+# RESULT.md when the stack cannot start (nothing has touched AWS at that point).
+built=false
+for attempt in 1 2 3; do
+    if docker compose build; then built=true; break; fi
+    echo "    build attempt $attempt failed; retrying in 20 s"
+    sleep 20
+done
+if [ "$built" != true ] || ! docker compose up -d --wait; then
+    echo "==> the dev stack did not start; the browser flow did not run"
+    node scripts/real-flow-report.mjs result "$RUN_DIR" 2 || true
+    exit 2
+fi
 
 echo "==> the flow, in a real browser"
 status=0
