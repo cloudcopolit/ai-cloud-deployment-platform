@@ -291,6 +291,41 @@ class FakeAws:
         live = any(logGroupNamePrefix in a for a in self.live)
         return {"logGroups": [{"logGroupName": logGroupNamePrefix}] if live else []}
 
+    def describe_db_subnet_groups(self, DBSubnetGroupName: str) -> dict[str, Any]:
+        if not any(DBSubnetGroupName in a for a in self.live):
+            raise _client_error("DBSubnetGroupNotFoundFault")
+        return {}
+
+    # ecs service / cluster: missing or deleted ones come back INACTIVE
+    def describe_services(self, cluster: str, services: list[str]) -> dict[str, Any]:
+        return {"services": [{"status": "ACTIVE" if services[0] in self.live else "INACTIVE"}]}
+
+    def describe_clusters(self, clusters: list[str]) -> dict[str, Any]:
+        return {"clusters": [{"status": "ACTIVE" if clusters[0] in self.live else "INACTIVE"}]}
+
+    # iam
+    def get_role(self, RoleName: str) -> dict[str, Any]:
+        if RoleName == "denied":
+            raise _client_error("AccessDenied")
+        if not any(a.endswith(f"/{RoleName}") for a in self.live):
+            raise _client_error("NoSuchEntity")
+        return {}
+
+    # ec2 and elbv2 describe calls: an id or ARN in `live` exists, anything else is NotFound
+    def __getattr__(self, name: str) -> Any:
+        if not name.startswith("describe_"):
+            raise AttributeError(name)
+
+        def describe(**kw: Any) -> dict[str, Any]:
+            ((param, values),) = kw.items()
+            if not any(v in a for v in values for a in self.live):
+                raise _client_error(f"Invalid{param}.NotFound")
+            # VpcIds -> Vpcs, LoadBalancerArns -> LoadBalancers, GroupIds -> SecurityGroups
+            plural = param.removesuffix("Ids").removesuffix("Arns") + "s"
+            return {{"GroupIds": "SecurityGroups"}.get(param, plural): [{"id": values[0]}]}
+
+        return describe
+
 
 def test_wait_for_service(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(verify, "client", lambda s, svc, region=None: FakeAws([[]], stable=True))
@@ -308,6 +343,19 @@ def test_destroy_proof_separates_live_leftovers_from_a_lagging_index(
         "arn:aws:secretsmanager:us-east-1:1:secret:cloudpilot/d/db-AbC",
         "arn:aws:rds:us-east-1:1:db:cp-x-db",
         "arn:aws:logs:us-east-1:1:log-group:/cloudpilot/d",
+        # what the index still listed ~15 min after a real destroy (run 6, 2026-10-27)
+        "arn:aws:ecs:us-east-1:1:service/cp-x-cluster/cp-x-app",
+        "arn:aws:ecs:us-east-1:1:cluster/cp-x-cluster",
+        "arn:aws:ec2:us-east-1:1:subnet/subnet-1",
+        "arn:aws:ec2:us-east-1:1:security-group-rule/sgr-1",
+        "arn:aws:ec2:us-east-1:1:security-group/sg-1",
+        "arn:aws:ec2:us-east-1:1:internet-gateway/igw-1",
+        "arn:aws:ec2:us-east-1:1:route-table/rtb-1",
+        "arn:aws:elasticloadbalancing:us-east-1:1:loadbalancer/app/cp-x-alb/1",
+        "arn:aws:elasticloadbalancing:us-east-1:1:targetgroup/cp-x-tg/1",
+        "arn:aws:elasticloadbalancing:us-east-1:1:listener/app/cp-x-alb/1/2",
+        "arn:aws:iam::1:role/cp-x-execution",
+        "arn:aws:rds:us-east-1:1:subgrp:cp-x-db",
     ]
     fake = FakeAws([gone[:3], gone[3:]])
     monkeypatch.setattr(verify, "client", lambda s, svc, region=None: fake)
@@ -319,13 +367,31 @@ def test_destroy_proof_separates_live_leftovers_from_a_lagging_index(
     assert check.deleted_task_definitions == 1
     assert fake.deleted == ["arn:td:1"]
 
-    leftover = FakeAws([["arn:aws:ec2:us-east-1:1:vpc/vpc-1"]])
+    vpc = "arn:aws:ec2:us-east-1:1:vpc/vpc-1"
+    leftover = FakeAws([[vpc, "arn:aws:ec2:us-east-1:1:subnet/subnet-2"]], live={vpc})
     monkeypatch.setattr(verify, "client", lambda s, svc, region=None: leftover)
     check = verify.verify_destroyed(
         object(), "d", task_family=None, timeout_s=0, sleep=lambda s: None
     )
     assert not check.clean
-    assert check.remaining == ["arn:aws:ec2:us-east-1:1:vpc/vpc-1"]
+    assert check.remaining == [vpc]
+    assert check.indexed_but_gone == ["arn:aws:ec2:us-east-1:1:subnet/subnet-2"]
+
+
+def test_destroy_proof_never_counts_an_unanswered_check_as_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unsure = [
+        "arn:aws:iam::1:role/denied",  # AccessDenied is not "not found"
+        "arn:aws:sqs:us-east-1:1:queue-x",  # a type with no check: trust the index
+    ]
+    fake = FakeAws([unsure])
+    monkeypatch.setattr(verify, "client", lambda s, svc, region=None: fake)
+    check = verify.verify_destroyed(
+        object(), "d", task_family=None, timeout_s=0, sleep=lambda s: None
+    )
+    assert not check.clean
+    assert check.remaining == unsure
 
 
 # ───────────────────────── the runner loop ─────────────────────────
