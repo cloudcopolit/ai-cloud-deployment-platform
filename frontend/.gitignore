@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Official AWS Architecture Icons package (ADR-020): source for scripts/build-aws-icon-manifest.mjs.
+# Not committed; only the generated subset in public/aws-icons/ is.
+/vendor/
+
+# Playwright output
+/playwright-report/
+/test-results/
