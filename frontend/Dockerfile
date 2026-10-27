@@ -48,7 +48,10 @@ FROM base AS runtime
 
 ENV NODE_ENV=production
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+# pnpm skips an optional package whose download fails, and Next.js then tries to fetch its
+# compiler into the read-only node_modules at start-up and hangs. Fail the build instead.
+RUN pnpm install --frozen-lockfile --prod \
+    && ls -d node_modules/.pnpm/@next+swc-* > /dev/null
 COPY next.config.ts ./
 COPY --from=build /app/public ./public
 COPY --from=build --chown=1000:1000 /app/.next ./.next

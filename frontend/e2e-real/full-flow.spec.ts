@@ -72,6 +72,21 @@ async function step<T>(page: Page, name: string, body: () => Promise<T>): Promis
   }
 }
 
+/** waits for `done` while taking a progress screenshot every `everyMs` (apply and destroy take minutes) */
+async function waitWithProgress(page: Page, done: () => Promise<boolean>, label: string, timeoutMs: number, everyMs = 4 * 60_000) {
+  const deadline = Date.now() + timeoutMs
+  let last = Date.now()
+  while (Date.now() < deadline) {
+    if (await done()) return
+    await page.waitForTimeout(10_000)
+    if (Date.now() - last >= everyMs) {
+      await snap(page, label)
+      last = Date.now()
+    }
+  }
+  throw new Error(`${label}: not finished after ${Math.round(timeoutMs / 60_000)} min`)
+}
+
 async function api<T>(page: Page, method: 'GET' | 'POST', url: string, data?: unknown): Promise<T> {
   const res = await page.request.fetch(`${API}${url}`, {
     method,
@@ -89,20 +104,23 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
 
   await step(page, 'login', async () => {
     await page.goto('/login')
+    await snap(page, 'login-page')
     await page.getByLabel('Sign in as a seeded user').selectOption({ index: 0 }) // Alice, OWNER
     await page.getByRole('button', { name: 'Developer sign-in' }).click()
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
-    await snap(page, 'login')
+    await snap(page, 'overview')
   })
 
   facts.repository_path = await step(page, 'repo-connected', async () => {
     await page.getByRole('main').getByRole('link', { name: /Demo Shop/ }).first().click()
     await expect(page.getByRole('heading', { name: 'Repositories' })).toBeVisible()
+    await snap(page, 'project-repositories')
     const existing = page.getByRole('link', { name: /cloudpilot-examples\/reference-app/ })
     if (await existing.count()) {
       await existing.first().click()
     } else {
       await page.getByLabel('GitHub repository URL').fill(REPO_URL)
+      await snap(page, 'connect-repository-form')
       await page.getByRole('button', { name: 'Connect' }).click()
     }
     await expect(page.getByRole('heading', { name: 'cloudpilot-examples/reference-app' })).toBeVisible()
@@ -113,6 +131,8 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
   await step(page, 'analysis-done', async () => {
     await page.getByRole('button', { name: 'Analyze this commit' }).click()
     await expect(page.getByRole('heading', { name: 'Repository analysis' })).toBeVisible()
+    await page.waitForTimeout(3_000) // the live agent trace, mid-run
+    await snap(page, 'analysis-running')
     await expect(page.getByText('Analysis finished.')).toBeVisible({ timeout: 180_000 })
     await expect(page.getByRole('main').getByText('checked the result')).toBeVisible()
     facts.analysis_url = page.url()
@@ -122,6 +142,7 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
   await step(page, 'architecture', async () => {
     await page.getByRole('button', { name: 'Propose an architecture' }).click()
     await expect(page.getByRole('heading', { name: /Architecture · version \d+/ })).toBeVisible({ timeout: 60_000 })
+    await snap(page, 'architecture-drawing')
     await expect(page.getByText(/Reasoning · \d+ steps/)).toBeVisible({ timeout: 60_000 })
     await expect(page.getByText(/Deterministic plan for the container-postgres archetype/)).toBeVisible()
     facts.architecture_url = page.url()
@@ -131,6 +152,8 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
 
   await step(page, 'aws-account-verified', async () => {
     await page.goto('/aws')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await snap(page, 'aws-accounts')
     const card = page.getByRole('listitem', { name: `AWS account ${ACCOUNT_ID}` })
     const verified = card.filter({ hasText: 'Verified' })
     if ((await verified.count()) === 0) {
@@ -138,6 +161,7 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
         await page.getByLabel('AWS account ID').fill(ACCOUNT_ID)
         await page.getByRole('button', { name: 'Connect AWS account' }).click()
         await expect(card.first()).toBeVisible()
+        await snap(page, 'aws-account-connected-onboarding')
       }
       // the customer's step: deploy the generated onboarding template in their account
       const teams = await api<{ id: string; name: string }[]>(page, 'GET', '/teams')
@@ -169,6 +193,7 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
       )
       facts.onboarding_stack = onboarding.stack_name
       await page.reload()
+      await snap(page, 'aws-onboarding-stack-deployed')
     }
     await card.first().getByRole('button', { name: /Verify (connection|again)/ }).click()
     await expect(card.first().getByText('Verified', { exact: true })).toBeVisible({ timeout: 60_000 })
@@ -178,15 +203,20 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
 
   const deploymentPath = await step(page, 'plan-and-cost', async () => {
     await page.goto(String(facts.architecture_url).replace('?build=1', ''))
+    await snap(page, 'architecture-before-deploy')
     await page.getByRole('link', { name: 'Deploy this architecture' }).click()
     await expect(page.getByRole('heading', { name: 'Plan a deployment' })).toBeVisible()
+    await snap(page, 'deploy-form')
     await page.getByLabel('Container image, pinned by digest').fill(IMAGE_URI)
     await page.getByRole('button', { name: 'Use my IP' }).click()
     await expect(page.getByLabel('Who may reach the load balancer')).toHaveValue(/\/32$/)
     facts.allowed_cidr = await page.getByLabel('Who may reach the load balancer').inputValue()
+    await snap(page, 'deploy-form-filled')
     await page.getByRole('button', { name: 'Create the OpenTofu plan' }).click()
     await expect(page.getByRole('heading', { name: /Deployment [0-9a-f]{8}/ })).toBeVisible()
-    await expect(page.getByText('Awaiting approval', { exact: true })).toBeVisible({ timeout: 15 * 60_000 })
+    await snap(page, 'planning')
+    const awaiting = page.getByText('Awaiting approval', { exact: true })
+    await waitWithProgress(page, () => awaiting.isVisible(), 'planning-progress', 15 * 60_000, 2 * 60_000)
     await expect(page.getByRole('heading', { name: 'Cost of this plan' })).toBeVisible()
     await snap(page, 'plan-and-cost')
     return new URL(page.url()).pathname
@@ -196,6 +226,7 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
 
   await step(page, 'approved', async () => {
     await page.getByLabel(/I reviewed the resources/).check()
+    await snap(page, 'approval-review')
     await page.getByRole('button', { name: 'Approve plan' }).click()
     await expect(page.getByRole('button', { name: 'Apply this plan to AWS' })).toBeVisible()
     await snap(page, 'approved')
@@ -204,13 +235,15 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
   await step(page, 'applying', async () => {
     await page.getByRole('button', { name: 'Apply this plan to AWS' }).click()
     await expect(page.getByText(/^(Applying|Apply queued)$/).first()).toBeVisible({ timeout: 120_000 })
+    await snap(page, 'apply-started')
     await expect(page.getByText('Applying', { exact: true })).toBeVisible({ timeout: 300_000 })
     await page.waitForTimeout(60_000) // let a few resources land, for the screenshot
     await snap(page, 'applying')
   })
 
   await step(page, 'health-check-passed', async () => {
-    await expect(page.getByText(/^(Live|Failed)$/).first()).toBeVisible({ timeout: 45 * 60_000 })
+    const finished = page.getByText(/^(Live|Failed)$/).first()
+    await waitWithProgress(page, () => finished.isVisible(), 'applying-progress', 45 * 60_000)
     const d = await api<Record<string, unknown>>(page, 'GET', `/deployments/${deploymentId}`)
     facts.health = d.health
     facts.outputs = d.outputs
@@ -222,12 +255,21 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
     facts.health_from_test_machine = { url: health, status: res.status(), body: (await res.text()).slice(0, 300) }
     expect(res.status()).toBe(200)
     await snap(page, 'health-check-passed')
+    // the deployed application itself, in the browser
+    const app = await page.context().newPage()
+    await app.goto(health)
+    await snap(app, 'deployed-app-health-endpoint')
+    await app.close()
   })
 
   await step(page, 'destroyed', async () => {
     await page.getByLabel('Type "destroy" to confirm').fill('destroy')
+    await snap(page, 'destroy-confirm')
     await page.getByRole('button', { name: 'Destroy deployment' }).click()
-    await expect(page.getByText(/^(Destroyed|Destroy incomplete)$/).first()).toBeVisible({ timeout: 45 * 60_000 })
+    await expect(page.getByText(/^(Destroying|Destroy queued)$/).first()).toBeVisible({ timeout: 120_000 })
+    await snap(page, 'destroy-started')
+    const gone = page.getByText(/^(Destroyed|Destroy incomplete)$/).first()
+    await waitWithProgress(page, () => gone.isVisible(), 'destroying-progress', 45 * 60_000)
     const d = await api<Record<string, unknown>>(page, 'GET', `/deployments/${deploymentId}`)
     facts.destroy_check = d.destroy_check
     facts.sessions = d.sessions
@@ -237,5 +279,7 @@ test('real AWS: repository to a health-checked deployment and a clean destroy', 
     )
     await expect(page.getByText('Destroyed', { exact: true })).toBeVisible()
     await snap(page, 'destroyed')
+    await page.getByRole('heading', { name: 'Audit trail' }).scrollIntoViewIfNeeded()
+    await snap(page, 'audit-trail')
   })
 })
