@@ -98,8 +98,36 @@ class CleanCheck:
         return asdict(self)
 
 
+# EC2 resource type in the ARN -> (describe call, id parameter, result key)
+_EC2_DESCRIBE = {
+    "vpc": ("describe_vpcs", "VpcIds", "Vpcs"),
+    "subnet": ("describe_subnets", "SubnetIds", "Subnets"),
+    "security-group": ("describe_security_groups", "GroupIds", "SecurityGroups"),
+    "security-group-rule": (
+        "describe_security_group_rules",
+        "SecurityGroupRuleIds",
+        "SecurityGroupRules",
+    ),
+    "internet-gateway": ("describe_internet_gateways", "InternetGatewayIds", "InternetGateways"),
+    "route-table": ("describe_route_tables", "RouteTableIds", "RouteTables"),
+}
+# ELBv2 ARN part -> (describe call, ARN parameter, result key)
+_ELB_DESCRIBE = {
+    ":loadbalancer/": ("describe_load_balancers", "LoadBalancerArns", "LoadBalancers"),
+    ":targetgroup/": ("describe_target_groups", "TargetGroupArns", "TargetGroups"),
+    ":listener/": ("describe_listeners", "ListenerArns", "Listeners"),
+}
+
+
+def _not_found(exc: ClientError) -> bool:
+    code = exc.response.get("Error", {}).get("Code", "")
+    return "NotFound" in code or code in {"NoSuchEntity", "ResourceNotFoundException"}
+
+
 def _live(arn: str, session: boto3.session.Session) -> bool:
-    """The tagging index lags; ask the owning service whether a listed ARN still exists."""
+    """The tagging index lags behind deletions (minutes to hours); ask the owning service whether
+    a listed ARN still exists. Only a not-found answer counts as gone: any other error (for
+    example access denied) keeps the resource listed as remaining."""
     try:
         if ":ecs:" in arn and ":task/" in arn:
             cluster = arn.split(":task/")[1].split("/")[0]
@@ -108,18 +136,38 @@ def _live(arn: str, session: boto3.session.Session) -> bool:
         if ":ecs:" in arn and ":task-definition/" in arn:
             defs = client(session, "ecs").describe_task_definition(taskDefinition=arn)
             return defs["taskDefinition"].get("status") not in {"DELETE_IN_PROGRESS"}
+        if ":ecs:" in arn and ":service/" in arn:
+            cluster = arn.split(":service/")[1].split("/")[0]
+            ecs = client(session, "ecs")
+            services = ecs.describe_services(cluster=cluster, services=[arn])["services"]
+            return any(s.get("status") != "INACTIVE" for s in services)
+        if ":ecs:" in arn and ":cluster/" in arn:
+            clusters = client(session, "ecs").describe_clusters(clusters=[arn])["clusters"]
+            return any(c.get("status") != "INACTIVE" for c in clusters)
+        if ":ec2:" in arn:
+            kind, _, resource_id = arn.split(":")[-1].partition("/")
+            if kind in _EC2_DESCRIBE:
+                call, param, key = _EC2_DESCRIBE[kind]
+                found = getattr(client(session, "ec2"), call)(**{param: [resource_id]})[key]
+                return bool(found)
+        if ":elasticloadbalancing:" in arn:
+            for part, (call, param, key) in _ELB_DESCRIBE.items():
+                if part in arn:
+                    elb = client(session, "elbv2")
+                    return bool(getattr(elb, call)(**{param: [arn]})[key])
+        if ":iam::" in arn and ":role/" in arn:
+            client(session, "iam").get_role(RoleName=arn.rsplit("/", 1)[1])
+            return True
         if ":secretsmanager:" in arn:
-            try:
-                info = client(session, "secretsmanager").describe_secret(SecretId=arn)
-            except ClientError:
-                return False
+            info = client(session, "secretsmanager").describe_secret(SecretId=arn)
             return "DeletedDate" not in info
         if ":rds:" in arn and ":db:" in arn:
             name = arn.split(":db:")[1]
-            try:
-                client(session, "rds").describe_db_instances(DBInstanceIdentifier=name)
-            except ClientError:
-                return False
+            client(session, "rds").describe_db_instances(DBInstanceIdentifier=name)
+            return True
+        if ":rds:" in arn and ":subgrp:" in arn:
+            name = arn.split(":subgrp:")[1]
+            client(session, "rds").describe_db_subnet_groups(DBSubnetGroupName=name)
             return True
         if ":logs:" in arn:
             name = arn.split(":log-group:")[1].rstrip(":*")
@@ -127,9 +175,9 @@ def _live(arn: str, session: boto3.session.Session) -> bool:
                 "logGroups"
             ]
             return any(g["logGroupName"] == name for g in groups)
-    except ClientError:
-        return False
-    return True  # anything else: trust the index
+    except ClientError as exc:
+        return not _not_found(exc)
+    return True  # a type with no check: trust the index
 
 
 def delete_inactive_task_definitions(session: boto3.session.Session, family: str | None) -> int:
