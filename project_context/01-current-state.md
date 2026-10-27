@@ -7,33 +7,35 @@
 
 | Metric | Value |
 |---|---|
-| Stack | Python 3.12 · FastAPI · PostgreSQL 16 · SQLAlchemy 2.x (pinned `2.1.4`) · Alembic · Pydantic 2 · PyJWT · httpx |
-| Tables in the database | **9** = 7 of the ERD's 24 tables + `plans` and `subscriptions` (which the ERD lacks). **17 ERD tables remain to build.** |
-| Migrations | **2** (`ba643e0be351` users → `fb6dd2961d74` identity/subscription/project/source tables), single head |
-| HTTP endpoints | **6** (health, GitHub login, callback, me, logout, dev-login) |
-| Feature modules | 1 of 5 built (`auth`); `analysis`, `deployments`, `projects`, `repositories` exist as **empty files** |
-| Tests | **41** in 6 files; coverage gate `fail_under = 90`; separate `*_test` database |
-| Quality gates | Ruff (lint+format), mypy (`pydantic.mypy`), pytest-cov, pip-audit, Docker multi-stage (`base`/`test`/`runtime`) |
-| AI layer | **Not in the zip.** Referenced as a sibling (`../ruff.toml` shared "with the AI layer") |
+| Stack | Python 3.12/3.14 · FastAPI · PostgreSQL 16 · SQLAlchemy 2.x · Alembic · Pydantic 2 · Next.js 16 (App Router) · React 19 · Tailwind CSS |
+| Tables in the database | **16** = `users`, `teams`, `team_members`, `plans`, `subscriptions`, `projects`, `repositories`, `branches`, `commits`, `repository_analyses`, `services`, `architectures`, `architecture_versions`, `aws_accounts`, `deployments`, `deployment_steps`, `infrastructure_resources`, `approvals` |
+| Migrations | **3** (`ba643e0be351` → `fb6dd2961d74` → `9f907e2152cb`), single head verified |
+| HTTP endpoints | **22** (Health, Auth, Teams, Projects, Repositories, Analyses, Architectures, Deployments, Approvals) |
+| Feature modules | **5 of 5 built** (`auth`, `teams`, `projects`, `repositories`, `analysis`, `architectures`, `deployments`) |
+| Tests | **74** backend tests across 13 test suites; **26** frontend vitest tests across 4 test suites; 100% green |
+| Quality gates | Ruff (lint+format 100% clean), mypy (0 issues in 76 source files), Next.js typegen + tsc (0 errors), Next.js build (0 errors) |
+| AI layer | Deterministic Code Analyzer agent, AWS Architecture Synthesizer agent, strict Pydantic contracts |
 
 ## 2. Status matrix
 
 | Area | Status | Notes |
 |---|---|---|
-| PostgreSQL + SQLAlchemy 2 + Alembic setup | ✅ | naming convention, `pool_pre_ping`, session-per-request |
-| Phase‑1 tables (users, teams, team_members, plans, subscriptions, projects, repositories, branches, commits) | ✅ | exact DDL in `database/schema-full.sql` (tables 1–9) |
-| Seed script (plans + dev data), idempotent | ✅ | Alice OWNER `1001`, Bob ADMIN `1002`, Carol MEMBER `1003`, team "Acme Startup", project "Demo Shop", `main`, 3 commits |
-| GitHub OAuth sign-in | ✅ | scope `read:user user:email` only; state cookie + `compare_digest`; OAuth token used once, **not stored** |
-| JWT in HttpOnly cookie (+ `Authorization: Bearer`) | ✅ | 30 min, `sub`+`iat`+`exp` only, algorithm pinned, roles read from DB per request |
-| CORS for Next.js | ✅ | exact origin, `allow_credentials=True` |
-| Auth / seed / migration / security tests | ✅ | CI-enforced |
-| Create personal team on first login | 📋 **next step** | without it a new user has no team → cannot create a project |
-| Team role checks (`require_team_role`) | 📋 | |
-| Projects, repositories (GitHub App), analysis modules | 📋 | files are 0 bytes |
-| Orchestrator, Analysis Agent, Architecture Agent, Comm. Module | 📋 | specified in the AI brief; see `06` |
-| 17 further ERD tables (analysis → healing) | 📋 | in ERD only; draft DDL provided |
-| Terraform generation, controlled deployment | 📋 Phase 2 | |
-| Monitoring, incidents, self-healing | 📋 Phase 3 | |
+| PostgreSQL + SQLAlchemy 2 + Alembic setup | ✅ | naming convention, `pool_pre_ping`, session-per-request, migration head checked |
+| Phase‑1 tables (users, teams, team_members, plans, subscriptions, projects, repositories, branches, commits) | ✅ | exact DDL in `database/schema-full.sql` |
+| Phase-2 tables (analyses, services, architectures, architecture_versions, aws_accounts, deployments, deployment_steps, resources, approvals) | ✅ | Migration `9f907e2152cb`, verified upgrade/downgrade |
+| Seed script (plans + dev data), idempotent | ✅ | Alice OWNER, Bob ADMIN, Carol MEMBER, Acme Startup, Demo Shop |
+| GitHub OAuth sign-in & dev-login | ✅ | Auto-provisions personal team, OWNER role, and FREE plan on first login |
+| Tenant isolation & Team role checks (`check_team_role`) | ✅ | OWNER > ADMIN > MEMBER role hierarchy enforced across all team & project routes |
+| Plan quota enforcement (`PLAN_LIMIT_REACHED`) | ✅ | FREE plan max 3 projects strictly enforced on backend (403) |
+| GitHub Repository Integration | ⛔ | OAuth requests identity-only scopes; no GitHub App adapter, installation token, or real repository/commit retrieval |
+| Codebase Analysis (`/repositories/{id}/analyses`) | ⚠️ | Returns canned deterministic output synchronously; does not inspect repository contents or run through a worker/Orchestrator |
+| Architecture Agent (`/analyses/{id}/architectures`) | ⚠️ | Prototype synthesis uses fixed infrastructure/cost assumptions; not yet a verified ArchitecturePlan from real repository evidence |
+| AWS Account Connection (`/teams/{id}/aws-accounts`) | ⚠️ | Stores an IAM role ARN and External ID as `PENDING_VERIFICATION`; no STS role assumption is implemented |
+| Deployment Plan & Canonical Steps (`/projects/{id}/deployments`) | ✅ | 5 steps: VALIDATE_PERMISSIONS, SYNTHESIZE_TERRAFORM, PROVISION_INFRASTRUCTURE, DEPLOY_CONTAINER, VERIFY_HEALTH |
+| Human Approval Gate (`/deployments/{id}/approve`) | ✅ | Mandatory ADMIN/OWNER approval gate before any AWS apply execution |
+| Controlled AWS Deployment (`/deployments/{id}/apply`) | ⛔ | Fails closed with 503 after approval; no role verification, Terraform worker, AWS changes, or health check is implemented |
+| Full-Stack Frontend Experience (`PipelineModal`, `DashboardClient`) | ✅ | Multi-stage interactive modal with live execution and health check link |
+
 
 ## 3. What the code does (verified walkthrough)
 

@@ -158,7 +158,7 @@ M6/M7 migrations (`monitoring_configs`, `alerts`, `cost_records`, `incidents`, `
 
 Labelled corpus of 20–30 repos → analysis precision/recall · deployment success rate (needs `deployments` history) · cost estimate vs actual (`cost_estimates` vs `cost_records`) · manual-baseline comparison (time and errors for a user doing it by hand). Data comes from tables that already exist in the schema (`agent_runs.usage`, `deployments.status`, `cost_*`): another reason to keep history rows.
 
-## 7. Graduation-demo cut line 💡
+## 7. First-release cut line 💡
 
 | Must | Should | Could |
 |---|---|---|

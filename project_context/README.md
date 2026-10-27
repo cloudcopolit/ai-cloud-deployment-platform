@@ -5,7 +5,7 @@
 
 ## What CloudPilot is (one paragraph)
 
-CloudPilot connects to a GitHub repository, analyzes the application, proposes an AWS architecture, lets the user review and edit it, and (later) deploys it into the **user's own AWS account** with Terraform. Every commit, architecture version and deployment attempt is recorded, so history stays traceable. It is a graduation project for small development teams and startups.
+CloudPilot connects to a GitHub repository, analyzes the application, proposes an AWS architecture, lets the user review and edit it, and (later) deploys it into the **user's own AWS account** with Terraform. Every commit, architecture version and deployment attempt is recorded, so history stays traceable. It is built for small development teams and startups.
 
 ## Reading order
 

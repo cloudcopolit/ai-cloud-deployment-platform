@@ -127,12 +127,15 @@ Extra constraints / indexes:
 | `name` | varchar(255) | no |  |  |  |
 | `url` | text | no |  |  |  |
 | `default_branch` | varchar(255) | no |  |  |  |
+| `is_private` | boolean | no | `false` |  | ✅ **New** (ADR-021) |
+| `access_mode` | varchar(16) | no | `'ANONYMOUS'` | CHECK: GITHUB_APP, TOKEN, ANONYMOUS | ✅ **New** (ADR-021): how CloudPilot last reached the repo; never a token |
+| `last_synced_at` | timestamptz | yes |  |  | ✅ **New** (ADR-021) |
 | `connected_at` | timestamptz | no | `now()` |  |  |
 | `updated_at` | timestamptz | no | `now()` |  |  |
 
 Extra constraints / indexes:
 
-- `ALTER TABLE repositories ADD CONSTRAINT uq_repositories_project_id_github_repository_id UNIQUE (project_id, github_repository_id);`
+- `ALTER TABLE repositories ADD CONSTRAINT uq_repositories_project_id_github_repository_id UNIQUE (project_id, github_repository_id);` (Q-3 closed: per project)
 
 ## branches
 
