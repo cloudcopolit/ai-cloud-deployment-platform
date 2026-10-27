@@ -4,7 +4,7 @@ AI-assisted cloud architecture design and deployment platform for small developm
 
 CloudPilot connects to a GitHub repository, analyzes the application, proposes an AWS architecture, lets the user review and edit it, and (in later phases) deploys it to the user's own AWS account with Terraform. Every commit, architecture version, and deployment attempt is recorded so the history stays traceable.
 
-> This is a graduation project. The README separates what is **implemented** from what is **planned**, so nothing here should be read as a finished feature unless it is listed as implemented.
+> This README separates what is **implemented** from what is **planned**, so nothing here should be read as a finished feature unless it is listed as implemented.
 
 ---
 

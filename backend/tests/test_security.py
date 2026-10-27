@@ -58,7 +58,7 @@ def test_rejects_expired_token() -> None:
 def test_rejects_unsigned_alg_none_token() -> None:
     token = jwt.encode(
         {"sub": str(uuid.uuid4()), "exp": datetime.now(UTC) + timedelta(minutes=5)},
-        key=None,
+        key="",  # alg=none ignores the key; PyJWT's types want a str
         algorithm="none",
     )
 

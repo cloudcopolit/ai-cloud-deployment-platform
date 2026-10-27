@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.db.seed import seed_dev_data, seed_reference_data
-from app.models import Branch, Plan, Subscription, TeamMember
+from app.models import Plan, Subscription, TeamMember
 
 
 def _row_counts(db: Session) -> dict[str, int]:
@@ -20,21 +20,21 @@ def test_seed_creates_reference_and_development_data(db_session: Session) -> Non
     seed_dev_data(db_session, plans)
 
     assert set(plans) == {"FREE", "STANDARD"}
-    assert _row_counts(db_session) == {
+    seeded = {
         "plans": 2,
         "teams": 1,
         "users": 3,
         "projects": 1,
         "subscriptions": 1,
         "team_members": 3,
-        "repositories": 1,
-        "branches": 1,
-        "commits": 3,
     }
+    counts = _row_counts(db_session)
+    assert {name: counts[name] for name in seeded} == seeded
+    # Nothing else, in particular no invented repositories, branches or commit SHAs.
+    assert {name: n for name, n in counts.items() if name not in seeded and n} == {}
     roles = db_session.scalars(select(TeamMember.role).order_by(TeamMember.role)).all()
     assert roles == ["ADMIN", "MEMBER", "OWNER"]
     assert db_session.scalar(select(Subscription.status)) == "ACTIVE"
-    assert db_session.scalar(select(Branch.is_deployment_branch)) is True
 
 
 def test_seed_is_idempotent(db_session: Session) -> None:

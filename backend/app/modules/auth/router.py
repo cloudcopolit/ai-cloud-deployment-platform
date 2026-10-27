@@ -84,14 +84,25 @@ def read_me(user: CurrentUser):
 
 
 @router.post("/dev-login", response_model=TokenResponse)
-def dev_login(body: DevLoginRequest, db: DbSession):
-    """Development only: sign in as a seeded user without GitHub."""
+def dev_login(body: DevLoginRequest, db: DbSession, response: Response):
+    """Development only: sign in as a seeded user without GitHub. Returns the token (for
+    Swagger/tools) and sets the same HttpOnly cookie as the GitHub callback (for browsers)."""
     if settings.environment != "development":
         raise HTTPException(status_code=404)
     user = service.get_user_by_github_id(db, body.github_user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return TokenResponse(access_token=create_access_token(user.id))
+    token = create_access_token(user.id)
+    response.set_cookie(
+        ACCESS_COOKIE,
+        token,
+        max_age=settings.access_token_expire_minutes * 60,
+        httponly=True,
+        samesite="lax",
+        secure=_cookie_secure(),
+        path="/",
+    )
+    return TokenResponse(access_token=token)
 
 
 @router.post("/logout", status_code=204)
