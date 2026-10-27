@@ -1,8 +1,8 @@
 name: Frontend
 
 on:
+  # every pull request, including stacked PRs whose base is another feature branch
   pull_request:
-    branches: [main, dev, testing]
   push:
     branches: [main, dev, testing]
   workflow_dispatch:
@@ -54,6 +54,10 @@ jobs:
 
       - name: Unit tests (Vitest)
         run: pnpm test
+
+      - name: Colour contrast of design tokens (WCAG 2.2 AA)
+        if: hashFiles('frontend/scripts/contrast.mjs') != ''
+        run: node scripts/contrast.mjs
 
       - name: Production build
         run: pnpm build

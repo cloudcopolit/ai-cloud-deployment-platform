@@ -21,8 +21,16 @@ services:
     volumes:
       - ./backend/app:/app/app:ro
       - ./backend/alembic:/app/alembic:ro
+      - ./ai/src/cloudpilot_ai:/app/cloudpilot_ai:ro
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+
+  worker:
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./ai/src/cloudpilot_ai:/app/cloudpilot_ai:ro
 
   frontend:
     build:

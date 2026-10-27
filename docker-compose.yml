@@ -1,85 +1,268 @@
-# Shared base for every CloudPilot environment. Do not run it on its own;
-# always combine it with an environment file (see docs/environments.md):
-#
-#   development: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-#   testing:     docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-tests
-#   production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file <secrets> up -d
-#
-# Values come from the environment or an env file. Required values have no
-# defaults here, so a missing secret stops Compose instead of falling back to
-# an insecure value.
+# CloudPilot Full Stack Docker Compose Orchestration
+# Services:
+#   db: PostgreSQL 16 with automated healthcheck and test database provisioning
+#   localstack: AWS local cloud emulator (STS, IAM, ECS, S3, RDS, SecretsManager)
+#   backend: FastAPI monolith running migrations and conditional seed on boot
+#   frontend: Next.js 16 App Router UI with Partial Prerendering
+#   backend-tests: Test runner service (profile: test) running against *_test DB
 
 name: cloudpilot
 
 x-backend-environment: &backend-environment
-  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
-  ENVIRONMENT: ${ENVIRONMENT:?Set ENVIRONMENT (development or production)}
-  JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
-  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?Set GITHUB_CLIENT_ID}
-  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?Set GITHUB_CLIENT_SECRET}
-  GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:?Set GITHUB_REDIRECT_URI}
-  FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudpilot}:${POSTGRES_PASSWORD:-cloudpilot}@db:5432/${POSTGRES_DB:-cloudpilot}
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  SEED_DEV_DATA: ${SEED_DEV_DATA:-true}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-key-at-least-32-characters-long-for-local-development}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dev-github-client-id}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dev-github-client-secret}
+  GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:8000/auth/github/callback}
+  # Repository access (ADR-021). All optional; without them only public repos, anonymously.
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+  GITHUB_APP_PRIVATE_KEY_PATH: /run/cloudpilot-secrets/github-app.pem
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+  # Language models (ADR-022). Empty keys = provider is MOCKED-ONLY and never called.
+  LLM_PROVIDER_PRIORITY: ${LLM_PROVIDER_PRIORITY:-anthropic,openai,gemini,xai}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  XAI_API_KEY: ${XAI_API_KEY:-}
+  # LangGraph ships LangSmith tracing; it stays off so no run data leaves the platform.
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  # Dev only: owner cloudpilot-examples is served by github-dev-mirror (examples/); empty = off.
+  GITHUB_DEV_MIRROR_URL: ${GITHUB_DEV_MIRROR_URL:-}
+  # Priced, deployable architecture patterns (ADR-023); off by default (prototype only).
+  ARCHITECT_AUTOMATED_ARCHETYPES: ${ARCHITECT_AUTOMATED_ARCHETYPES:-false}
+  # CloudPilot's own AWS identity (ADR-028), never the LocalStack values below. Empty =
+  # deployments are disabled.
+  CLOUDPILOT_AWS_ACCESS_KEY_ID: ${CLOUDPILOT_AWS_ACCESS_KEY_ID:-}
+  CLOUDPILOT_AWS_SECRET_ACCESS_KEY: ${CLOUDPILOT_AWS_SECRET_ACCESS_KEY:-}
+  CLOUDPILOT_AWS_REGION: ${CLOUDPILOT_AWS_REGION:-us-east-1}
+  CLOUDPILOT_AWS_ENDPOINT_URL: ${CLOUDPILOT_AWS_ENDPOINT_URL:-}
+  AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://localstack:4566}
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
 
 services:
   db:
-    image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+    image: postgres:16
+    container_name: cloudpilot-db
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-cloudpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudpilot}
+      POSTGRES_DB: ${POSTGRES_DB:-cloudpilot}
     volumes:
       - db-data:/var/lib/postgresql/data
+      - ./docker/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER:-cloudpilot}\" -d \"$${POSTGRES_DB:-cloudpilot}\""]
       interval: 5s
       timeout: 5s
-      retries: 12
+      retries: 10
+      start_period: 5s
+    # also on the deploy runner's internal network (its only reachable service besides the proxy)
+    networks: [default, deploy-net]
 
-  # One-off job: applies Alembic migrations before the API starts.
+  localstack:
+    image: localstack/localstack:3.7.2
+    container_name: cloudpilot-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3,iam,sts,ecs,logs,cloudwatch,ec2,elasticloadbalancingv2,secretsmanager,rds
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4566/_localstack/health', timeout=3)\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+
   migrate:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       target: runtime
-    command: ["alembic", "upgrade", "head"]
+    container_name: cloudpilot-migrate
     environment: *backend-environment
     depends_on:
       db:
         condition: service_healthy
-    restart: "no"
+      localstack:
+        condition: service_healthy
+    command: ["sh", "-c", "alembic upgrade head"]
+    profiles: [migrate]
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       target: runtime
+    container_name: cloudpilot-backend
     environment: *backend-environment
+    volumes:
+      # Git-ignored secrets folder (GitHub App key); a missing file just disables App access.
+      - ./secrets:/run/cloudpilot-secrets:ro
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/db', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6
-      start_period: 10s
+      start_period: 15s
+
+  # Runs analysis (and later deployment) jobs from the PostgreSQL queue (ADR-008).
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+    container_name: cloudpilot-worker
+    environment:
+      <<: *backend-environment
+      RUN_MIGRATIONS: "false"
+    volumes:
+      - ./secrets:/run/cloudpilot-secrets:ro
+    depends_on:
+      backend:
+        condition: service_healthy  # the API container has migrated the database
+    command: ["python", "-m", "app.jobs.worker"]
+    stop_grace_period: 30s
+
+  # Deploy runner (ADR-026): runs one OpenTofu job per container lifetime, then exits and is
+  # restarted fresh. Read-only root, work dir on tmpfs, no Docker socket, and no direct
+  # internet: its only network is internal; AWS is reached through the egress proxy.
+  deploy-runner:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: deploy-runner
+    container_name: cloudpilot-deploy-runner
+    environment:
+      <<: *backend-environment
+      RUN_MIGRATIONS: "false"
+      AWS_ENDPOINT_URL: ""
+      HTTPS_PROXY: http://egress-proxy:3128
+      HTTP_PROXY: http://egress-proxy:3128
+      NO_PROXY: db,localhost,127.0.0.1
+    networks: [deploy-net]
+    read_only: true
+    tmpfs:
+      - /tmp:size=3g,mode=1777
+    depends_on:
+      backend:
+        condition: service_healthy
+      egress-proxy:
+        condition: service_started
+    restart: always
+    stop_grace_period: 120s
+
+  # Dev only: serves examples/<app> as the GitHub repository cloudpilot-examples/<app>, so
+  # CloudPilot's own reference app can be analyzed without a public repository. It reuses the
+  # end-to-end fake GitHub server's code read-only.
+  github-dev-mirror:
+    image: python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+    container_name: cloudpilot-github-dev-mirror
+    command: ["python", "-I", "/mirror/server.py", "8080"]
+    volumes:
+      - ./e2e/fake_github:/fake:ro
+      - ./docker/dev-mirror:/mirror:ro
+      - ./examples:/examples:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/rate_limit', timeout=3)"]
+      interval: 5s
+      retries: 20
+
+  # The runner's only way out: *.amazonaws.com and nothing else (docker/egress-proxy).
+  egress-proxy:
+    build: ./docker/egress-proxy
+    container_name: cloudpilot-egress-proxy
+    networks: [default, deploy-net]
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
       target: runtime
       args:
-        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?Set PUBLIC_API_URL (API address the browser uses)}
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    container_name: cloudpilot-frontend
     environment:
-      # Server-side calls stay on the Compose network.
       API_INTERNAL_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+      # Shows the seeded-user sign-in. The backend refuses dev-login unless ENVIRONMENT=development.
+      DEV_LOGIN_ENABLED: ${DEV_LOGIN_ENABLED:-true}
     depends_on:
       backend:
         condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
-      start_period: 15s
+      start_period: 20s
+
+  backend-tests:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: test
+    container_name: cloudpilot-backend-tests
+    profiles: [test]
+    environment:
+      <<: *backend-environment
+      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudpilot}:${POSTGRES_PASSWORD:-cloudpilot}@db:5432/${POSTGRES_DB:-cloudpilot}_test
+      RUFF_CACHE_DIR: /tmp/.ruff_cache
+    # Live sources are mounted so the gates run against the working tree without a rebuild;
+    # rebuild only when requirements change.
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
+      - ./backend/tests:/app/tests:ro
+      - ./backend/pyproject.toml:/app/pyproject.toml:ro
+      - ./ai/src/cloudpilot_ai:/app/cloudpilot_ai:ro
+      - ./ruff.toml:/app/ruff.toml:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  frontend-tests:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: test
+    container_name: cloudpilot-frontend-tests
+    profiles: [test]
+    volumes:
+      - ./frontend/src:/app/src:ro
+
 
 volumes:
   db-data:
+  localstack-data:
+
+networks:
+  default: {}
+  # internal: no route out; the deploy runner reaches AWS only via egress-proxy
+  deploy-net:
+    internal: true

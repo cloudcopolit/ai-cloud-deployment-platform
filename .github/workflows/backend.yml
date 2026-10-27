@@ -1,8 +1,8 @@
 name: Backend
 
 on:
+  # every pull request, including stacked PRs whose base is another feature branch
   pull_request:
-    branches: [main, dev, testing]
   push:
     branches: [main, dev, testing]
   workflow_dispatch:
@@ -90,3 +90,84 @@ jobs:
       # and `alembic check` for model changes that have no migration.
       - name: Run tests with coverage
         run: python -m pytest --cov --cov-report=term-missing
+
+  migrations:
+    name: Database migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+        env:
+          POSTGRES_USER: cloudpilot
+          POSTGRES_PASSWORD: cloudpilot
+          POSTGRES_DB: cloudpilot_migrations
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cloudpilot -d cloudpilot_migrations"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # placeholders: Alembic only needs the settings object to load; nothing is called
+      DATABASE_URL: postgresql+psycopg://cloudpilot:cloudpilot@localhost:5432/cloudpilot_migrations
+      JWT_SECRET_KEY: ci-only-not-a-secret-0123456789abcdefghijklmnopqrstuvwxyz
+      GITHUB_CLIENT_ID: ci-placeholder
+      GITHUB_CLIENT_SECRET: ci-placeholder
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: backend/.python-version
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Exactly one migration head
+        run: |
+          heads=$(alembic heads | grep -c .)
+          echo "heads: ${heads}"; alembic heads
+          test "$heads" -eq 1
+
+      - name: Upgrade an empty database to head
+        run: alembic upgrade head
+
+      - name: Models match the migrations (alembic check)
+        run: alembic check
+
+      - name: Audit log is append-only (trigger rejects UPDATE and DELETE)
+        run: |
+          python - <<'EOF'
+          import os, sys
+          import sqlalchemy as sa
+          url = os.environ["DATABASE_URL"]
+          engine = sa.create_engine(url)
+          with engine.begin() as db:
+              db.execute(sa.text("INSERT INTO teams (id, name) VALUES (gen_random_uuid(), 'ci') RETURNING id"))
+          for statement in ("UPDATE audit_logs SET action = 'x'", "DELETE FROM audit_logs"):
+              try:
+                  with engine.begin() as db:
+                      db.execute(sa.text(
+                          "INSERT INTO audit_logs (id, team_id, action, target_type, entry_hash) "
+                          "SELECT gen_random_uuid(), id, 'CI', 'ci', repeat('0', 64) FROM teams LIMIT 1"))
+                      db.execute(sa.text(statement))
+              except sa.exc.DBAPIError as exc:
+                  assert "append-only" in str(exc), exc
+                  print(f"refused as expected: {statement}")
+              else:
+                  sys.exit(f"audit_logs accepted: {statement}")
+          EOF
+
+      - name: Downgrade to base and upgrade again
+        run: |
+          alembic downgrade base
+          alembic upgrade head
+          alembic current
