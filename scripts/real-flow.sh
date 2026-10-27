@@ -47,7 +47,9 @@ for attempt in 1 2 3; do
     echo "    build attempt $attempt failed; retrying in 20 s"
     sleep 20
 done
-if [ "$built" != true ] || ! docker compose up -d --wait; then
+# The dev mirror runs mounted source; `up` does not restart it when only that source changed.
+if [ "$built" != true ] || ! docker compose up -d --wait \
+    || ! docker compose restart github-dev-mirror; then
     echo "==> the dev stack did not start; the browser flow did not run"
     node scripts/real-flow-report.mjs result "$RUN_DIR" 2 || true
     exit 2
