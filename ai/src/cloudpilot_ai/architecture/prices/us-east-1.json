@@ -1,0 +1,167 @@
+{
+  "region": "us-east-1",
+  "source": "AWS Price List (public on-demand offers), first pricing tier",
+  "pricing_as_of": "2026-09-11",
+  "items": {
+    "alb_hour": {
+      "usd": 0.0225,
+      "unit": "Hrs",
+      "sku": "37CUWUT8GSNQEPUV",
+      "offer": "AWSELB",
+      "description": "$0.0225 per Application LoadBalancer-hour (or partial hour)",
+      "published": "2026-09-11"
+    },
+    "alb_lcu_hour": {
+      "usd": 0.008,
+      "unit": "LCU-Hrs",
+      "sku": "P2XGEJ8N3KU52WA8",
+      "offer": "AWSELB",
+      "description": "$0.008 per used Application load balancer capacity unit-hour (or partial hour)",
+      "published": "2026-09-11"
+    },
+    "cloudfront_us_transfer_out_gb": {
+      "usd": 0.085,
+      "unit": "GB",
+      "sku": "GV2WFGX37Q9PDSHF",
+      "offer": "AmazonCloudFront",
+      "description": "$0.085 per GB - first 10 TB / month data transfer out",
+      "published": "2026-10-19"
+    },
+    "cloudwatch_logs_ingest_gb": {
+      "usd": 0.5,
+      "unit": "GB",
+      "sku": "S8QGXX5R2BKKMDSJ",
+      "offer": "AmazonCloudWatch",
+      "description": "$0.50 per GB custom log data ingested in Standard log class - US East (Northern Virginia)",
+      "published": "2026-10-07"
+    },
+    "cloudwatch_logs_storage_gb_month": {
+      "usd": 0.03,
+      "unit": "GB-Mo",
+      "sku": "6K9ADYQAHV5KX9KZ",
+      "offer": "AmazonCloudWatch",
+      "description": "$0.03 per GB-mo of log storage - US East (Northern Virginia)",
+      "published": "2026-10-07"
+    },
+    "ecr_storage_gb_month": {
+      "usd": 0.1,
+      "unit": "GB-Mo",
+      "sku": "KJC988R4J65BDMTQ",
+      "offer": "AmazonECR",
+      "description": "$0.10 per GB-month of data storage",
+      "published": "2026-09-11"
+    },
+    "elasticache_redis_t4g_micro_hour": {
+      "usd": 0.016,
+      "unit": "Hrs",
+      "sku": "BT7FF8NJHA6V7WVP",
+      "offer": "AmazonElastiCache",
+      "description": "$0.016 per T4G Micro Cache node-hour (or partial hour) running Redis",
+      "published": "2026-10-14"
+    },
+    "fargate_gb_hour": {
+      "usd": 0.004445,
+      "unit": "hours",
+      "sku": "PBZNQUSEXZUC34C9",
+      "offer": "AmazonECS",
+      "description": "AWS Fargate - Memory  - US East (N.Virginia)",
+      "published": "2026-10-19"
+    },
+    "fargate_vcpu_hour": {
+      "usd": 0.04048,
+      "unit": "hours",
+      "sku": "8CESGAFWKAJ98PME",
+      "offer": "AmazonECS",
+      "description": "AWS Fargate - vCPU - US East (N.Virginia)",
+      "published": "2026-10-19"
+    },
+    "mq_rabbitmq_storage_gb_month": {
+      "usd": 0.1,
+      "unit": "GB-Mo",
+      "sku": "ZK6M6QHF5KEZCXC2",
+      "offer": "AmazonMQ",
+      "description": "Storage (Amazon EBS) used by RabbitMQ brokers (GB-months) in US East (N. Virginia)",
+      "published": "2026-09-11"
+    },
+    "mq_rabbitmq_t3_micro_hour": {
+      "usd": 0.02704,
+      "unit": "Hrs",
+      "sku": "UDSBRUZZZ8X6RRBW",
+      "offer": "AmazonMQ",
+      "description": "single-instance mq.t3.micro hour (or partial hour) running RabbitMQ in US East (N. Virginia)",
+      "published": "2026-09-11"
+    },
+    "msk_storage_gb_month": {
+      "usd": 0.1,
+      "unit": "GB-Mo",
+      "sku": "65XV7TSGW9ZJSRYZ",
+      "offer": "AmazonMSK",
+      "description": "$0.10 per GB-Mo for storage in US East (N. Virginia)",
+      "published": "2026-10-14"
+    },
+    "msk_t3_small_broker_hour": {
+      "usd": 0.0456,
+      "unit": "hours",
+      "sku": "EAENBG6PQA5U8JTN",
+      "offer": "AmazonMSK",
+      "description": "$0.0456 per broker hour for Kafka.t3.small in US East (N. Virginia)",
+      "published": "2026-10-14"
+    },
+    "opensearch_t3_small_hour": {
+      "usd": 0.036,
+      "unit": "Hrs",
+      "sku": "5J8PMAEBQ97Q467D",
+      "offer": "AmazonES",
+      "description": "$ 0.036 per t3.small.search instance hour (or partial hour)",
+      "published": "2026-10-20"
+    },
+    "public_ipv4_hour": {
+      "usd": 0.005,
+      "unit": "Hrs",
+      "sku": "4GQUNXTFWVSGPUZK",
+      "offer": "AmazonVPC",
+      "description": "$0.005 per In-use public IPv4 address per hour",
+      "published": "2026-10-16"
+    },
+    "rds_gp3_gb_month": {
+      "usd": 0.115,
+      "unit": "GB-Mo",
+      "sku": "KYVYY29G957PKY3B",
+      "offer": "AmazonRDS",
+      "description": "$0.115 per GB-month of provisioned GP3 storage running PostgreSQL",
+      "published": "2026-10-20"
+    },
+    "rds_postgres_t4g_micro_hour": {
+      "usd": 0.016,
+      "unit": "Hrs",
+      "sku": "9HPEGXQTDDGH53C9",
+      "offer": "AmazonRDS",
+      "description": "$ 0.016 per RDS db.t4g.micro Single-AZ instance hour (or partial hour) running PostgreSQL",
+      "published": "2026-10-20"
+    },
+    "route53_hosted_zone_month": {
+      "usd": 0.5,
+      "unit": "HostedZone",
+      "sku": "KVPGEJE88UW8S779",
+      "offer": "AmazonRoute53",
+      "description": "$0.50 per Hosted Zone for the first 25 Hosted Zones",
+      "published": "2026-09-11"
+    },
+    "s3_standard_gb_month": {
+      "usd": 0.023,
+      "unit": "GB-Mo",
+      "sku": "WP9ANXZGBYYSGJEA",
+      "offer": "AmazonS3",
+      "description": "$0.023 per GB - first 50 TB / month of storage used",
+      "published": "2026-10-15"
+    },
+    "secretsmanager_secret_month": {
+      "usd": 0.4,
+      "unit": "Secrets",
+      "sku": "BJ3PQ9BYGU6P632F",
+      "offer": "AWSSecretsManager",
+      "description": "$0.40 per Secret",
+      "published": "2026-09-11"
+    }
+  }
+}

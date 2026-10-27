@@ -1,0 +1,245 @@
+{
+  "run_at": "2026-10-25T21:48:02+00:00",
+  "repositories": 15,
+  "providers": {
+    "deterministic": "run",
+    "anthropic": "not run (MOCKED-ONLY: no API key)",
+    "openai": "not run (MOCKED-ONLY: no API key)",
+    "gemini": "not run (MOCKED-ONLY: no API key)",
+    "xai": "not run (MOCKED-ONLY: no API key)"
+  },
+  "summary": {
+    "services": {
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "frameworks": {
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "data_stores": {
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "ports": {
+      "accuracy": 1.0,
+      "n": 33
+    },
+    "recommendation": {
+      "accuracy": 1.0,
+      "n": 15
+    }
+  },
+  "per_repository": [
+    {
+      "repository": "Delivery-Plus0/delivery-plus",
+      "commit": "0d2fa8a27090beecd39d16472a1412dcf64df775",
+      "ms": 16099,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "fastapi/full-stack-fastapi-template",
+      "commit": "b1125d8839482cb7bbae603ddc6d0081bf87532e",
+      "ms": 5567,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "heroku/nodejs-getting-started",
+      "commit": "8b8dec11fcf027522a857e0c831ee01b7124f673",
+      "ms": 257,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "mdn/beginner-html-site",
+      "commit": "6cf801f2ce32e60e3be46038b85f0ee5f9dd0ef9",
+      "ms": 147,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "static_site",
+      "recommendation_expected": "static_site"
+    },
+    {
+      "repository": "spring-projects/spring-petclinic",
+      "commit": "500158f732419217507c7656904b8e6aa1bcc0d6",
+      "ms": 3724,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "dockersamples/example-voting-app",
+      "commit": "63e9150ca17af4ed05880d4245e486481f73fcb4",
+      "ms": 1138,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "pallets/flask",
+      "commit": "d086db856be187255b8ec61ef409357393020f32",
+      "ms": 3739,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "unsupported",
+      "recommendation_expected": "unsupported"
+    },
+    {
+      "repository": "expressjs/express",
+      "commit": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "ms": 3938,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "unsupported",
+      "recommendation_expected": "unsupported"
+    },
+    {
+      "repository": "heroku/python-getting-started",
+      "commit": "561bc55e4aaf22f98c040611fd613994547b31bb",
+      "ms": 377,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "brocoders/nestjs-boilerplate",
+      "commit": "9620f159eefe38f47747d02ab162852367c5472c",
+      "ms": 12667,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "vercel/commerce",
+      "commit": "f7521d57d29f0eb3d23c1399cf9bb299d61fcd21",
+      "ms": 1723,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "GoogleCloudPlatform/microservices-demo",
+      "commit": "38e7348eb289eb5b87c0c6e8cb19ced0449dc389",
+      "ms": 8524,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "testdrivenio/fastapi-tdd-docker",
+      "commit": "16433b6621e9afd801de8eba9738a6bfefb1f601",
+      "ms": 821,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "gothinkster/golang-gin-realworld-example-app",
+      "commit": "626c372d259472148d93303f74aa9b9a1cdcef24",
+      "ms": 667,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "container",
+      "recommendation_expected": "container"
+    },
+    {
+      "repository": "mdn/todo-react",
+      "commit": "d28218cfb353d474c0cb51b495325db6eb908622",
+      "ms": 498,
+      "services_missing": [],
+      "services_extra": [],
+      "frameworks_missing": [],
+      "frameworks_extra": [],
+      "stores_missing": [],
+      "stores_extra": [],
+      "port_misses": [],
+      "recommendation": "static_site",
+      "recommendation_expected": "static_site"
+    }
+  ]
+}
