@@ -41,6 +41,14 @@ node frontend/scripts/contrast.mjs
 
 `scripts/e2e.sh` never touches real GitHub or AWS. The real-AWS flow is separate (section 6).
 
+CI (`.github/workflows/`) runs on every pull request, stacked ones included: backend lint/types/tests
+and a **migrations** job (one head, upgrade, `alembic check`, append-only audit trigger, downgrade and
+back), AI, frontend (with contrast), **End-to-end** (`scripts/e2e.sh` unchanged), infrastructure
+(OpenTofu fmt/validate, TFLint, Hadolint, Compose, Trivy, the deploy-runner image offline, the egress
+allowlist) and security (Gitleaks, pip/pnpm audit, **Semgrep**). CodeQL is not available on this
+private Free-plan repository (GitHub answers 403), so Semgrep is the SAST step. Accepted findings
+are inline `trivy:ignore` / `nosemgrep` comments with the reason and ADR.
+
 ## 4. Connect an AWS account (once per account)
 
 1. UI → **AWS accounts** → connect the 12-digit account id (ADMIN/OWNER).
@@ -94,6 +102,10 @@ docker push $REPO:v1
 | State lock held after a crash | The lock file is `deployments/<id>/terraform.tfstate.tflock` in the state bucket; remove it only after confirming no runner is working on that deployment. |
 | Verification fails | Re-deploy the onboarding template; the External ID shown in the UI must match the trust policy. |
 | Network flakes pushing images | Re-run `docker push` (layers resume). |
+| `real-flow.sh` stops before the browser ("the dev stack did not start") | A registry or npm download timed out. The script already retried the build three times and wrote `RESULT.md`; run it again. |
+| Frontend build fails at `ls -d node_modules/.pnpm/@next+swc-*` | pnpm skipped Next's native compiler after a failed download; rebuild (`docker compose build frontend`). Without this guard the image hung at start-up. |
+| "… is already connected to this project" for `cloudpilot-examples/*` | The dev mirror is serving old code; `docker compose restart github-dev-mirror` (`real-flow.sh` does this). |
+| Destroy shows "Destroying" for minutes after OpenTofu finished | The tagging index lags behind deletions. The check confirms each listed resource with its own service and reports it as "indexed but gone"; wait for "Destroyed". |
 
 ## 8. Cleanup of everything a sandbox test created
 
