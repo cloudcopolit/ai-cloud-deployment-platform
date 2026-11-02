@@ -28,7 +28,7 @@ def github_login():
     response.set_cookie(
         STATE_COOKIE,
         state,
-        max_age=600,
+        max_age=1000,
         httponly=True,
         samesite="lax",
         secure=settings.environment != "development",

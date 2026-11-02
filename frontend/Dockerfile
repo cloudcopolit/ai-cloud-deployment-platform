@@ -17,7 +17,9 @@ WORKDIR /app
 FROM base AS deps
 
 # 1000 = the image's node user
+
 RUN chown 1000:1000 /app
+RUN mkdir -p /app/.next
 USER 1000
 COPY --chown=1000:1000 package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
