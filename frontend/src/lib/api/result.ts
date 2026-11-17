@@ -21,30 +21,31 @@ function kindFor(status: number): ApiFailure['kind'] {
   return 'error'
 }
 
-/** Turn a fetch Response into an ApiResult, validating the body with `schema`. */
-export async function toResult<T>(res: Response, schema: z.ZodType<T>): Promise<ApiResult<T>> {
-  let body: unknown = null
-  try {
-    body = res.status === 204 ? null : await res.json()
-  } catch {
-    body = null
-  }
-  if (!res.ok) {
+/**
+ * Turn an HTTP status and an already-parsed body into an ApiResult.
+ * Error bodies are read through the API error envelope; success bodies are validated with `schema`.
+ */
+export function resultFromResponse<T>(
+  status: number,
+  body: unknown,
+  schema: z.ZodType<T>
+): ApiResult<T> {
+  if (status < 200 || status >= 300) {
     const envelope = ErrorEnvelopeSchema.safeParse(body)
     return {
       ok: false,
-      kind: kindFor(res.status),
-      status: res.status,
-      code: envelope.success ? envelope.data.error.code : `HTTP_${res.status}`,
-      message: envelope.success ? envelope.data.error.message : `Request failed (${res.status}).`
+      kind: kindFor(status),
+      status,
+      code: envelope.success ? envelope.data.error.code : `HTTP_${status}`,
+      message: envelope.success ? envelope.data.error.message : `Request failed (${status}).`
     }
   }
-  const parsed = schema.safeParse(body)
+  const parsed = schema.safeParse(status === 204 ? null : body)
   if (!parsed.success) {
     return {
       ok: false,
       kind: 'invalid',
-      status: res.status,
+      status,
       code: 'UNEXPECTED_RESPONSE',
       message: 'The server answered in an unexpected format.'
     }

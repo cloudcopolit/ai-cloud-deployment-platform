@@ -1,14 +1,13 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-primary: var(--font-primary);
   --font-heading: var(--font-display);
   --font-display: var(--font-display);
   --color-brand-blue: var(--brand-blue);
@@ -58,62 +57,64 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/*
- * Design tokens. Every text/control pair is checked by `node scripts/contrast.mjs`
- * (WCAG 2.2 AA). Two themes: light (neutral greys) and black (pure #000, graphite surfaces).
- * Brand blue #2F6BFF is 4.49:1 on white and brand teal #19D3C5 is 1.88:1, so light mode uses
- * darker shades for text; raw teal is only used on black surfaces or as decoration.
- */
 :root {
-  /* Inter for UI text, Poppins for display type (the wordmark is set in Poppins) */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-  --font-display: var(--font-poppins), var(--font-sans);
-  --font-geist-mono: ui-monospace, SFMono-Regular, 'Cascadia Code', Menlo, Consolas, monospace;
-  --brand-blue: #2f6bff;
-  --brand-teal: #19d3c5;
-  /* brand black: the hero / sign-in surface in both themes; it carries the `dark` class, so text
-     on it uses the black-theme tokens */
-  --brand-black: #000000;
+  /* Share Tech for all UI and display type (loaded in app/layout.tsx) */
+  --font-primary: var(--font-rajdhani), ui-sans-serif sans-serif;
+  --font-display: var(--font-rajdhani), var(--font-primary);
 
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --primary: #1f5ae6;
-  --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #0a0a0a;
-  --muted: #f5f5f5;
-  --muted-foreground: #525252;
-  --accent: #f4f4f5;
-  --accent-foreground: #0a0a0a;
-  --accent-strong: #0b7f76;
-  --destructive: #b42318;
-  --warning: #8a5300;
-  --success: #0f7a3d;
-  --info: #1f5ae6;
-  --border: #e5e5e5;
-  --border-strong: #737373;
-  --input: #737373;
-  --ring: #1f5ae6;
+  --brand-blue: hsl(222, 100%, 59%); /* #2f6bff */
+  --brand-teal: hsl(174, 79%, 46%); /* #19d3c5 */
+  --brand-black: hsl(0, 0%, 0%); /* #000000 */
+
+  --background: hsl(0, 0%, 100%); /* #ffffff */
+  --foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+  --card: hsl(0, 0%, 100%); /* #ffffff */
+  --card-foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+  --popover: hsl(0, 0%, 100%); /* #ffffff */
+  --popover-foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+
+  --primary: hsl(221, 83%, 53%); /* Already HSL */
+  --primary-foreground: hsl(0, 0%, 100%); /* #ffffff */
+
+  --secondary: hsl(240, 5%, 96%); /* #f4f4f5 */
+  --secondary-foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+
+  --muted: hsl(0, 0%, 96%); /* #f5f5f5 */
+  --muted-foreground: hsl(0, 0%, 32%); /* #525252 */
+
+  --accent: hsl(240, 5%, 96%); /* #f4f4f5 */
+  --accent-foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+  --accent-strong: hsl(175, 84%, 27%); /* #0b7f76 */
+
+  --destructive: hsl(4, 76%, 40%); /* #b42318 */
+  --warning: hsl(36, 100%, 27%); /* #8a5300 */
+  --success: hsl(145, 78%, 27%); /* #0f7a3d */
+  --info: hsl(222, 80%, 51%); /* #1f5ae6 */
+
+  --border: hsl(0, 0%, 90%); /* #e5e5e5 */
+  --border-strong: hsl(0, 0%, 45%); /* #737373 */
+  --input: hsl(0, 0%, 45%); /* #737373 */
+  --ring: hsl(222, 80%, 51%); /* #1f5ae6 */
+
   /* surfaces that hold official AWS icons: the icons are made for light backgrounds */
-  --icon-surface: #ffffff;
-  --chart-1: #1f5ae6;
-  --chart-2: #0b7f76;
-  --chart-3: #8a5300;
-  --chart-4: #6b46c1;
-  --chart-5: #b42318;
+  --icon-surface: hsl(0, 0%, 100%); /* #ffffff */
+
+  --chart-1: hsl(222, 80%, 51%); /* #1f5ae6 */
+  --chart-2: hsl(175, 84%, 27%); /* #0b7f76 */
+  --chart-3: hsl(36, 100%, 27%); /* #8a5300 */
+  --chart-4: hsl(259, 49%, 52%); /* #6b46c1 */
+  --chart-5: hsl(4, 76%, 40%); /* #b42318 */
+
   --radius: 0.625rem;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #0a0a0a;
-  --sidebar-primary: #1f5ae6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4f4f5;
-  --sidebar-accent-foreground: #0a0a0a;
-  --sidebar-border: #e5e5e5;
-  --sidebar-ring: #1f5ae6;
+
+  --sidebar: hsl(0, 0%, 98%); /* #fafafa */
+  --sidebar-foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+  --sidebar-primary: hsl(222, 80%, 51%); /* #1f5ae6 */
+  --sidebar-primary-foreground: hsl(0, 0%, 100%); /* #ffffff */
+  --sidebar-accent: hsl(240, 5%, 96%); /* #f4f4f5 */
+  --sidebar-accent-foreground: hsl(0, 0%, 4%); /* #0a0a0a */
+  --sidebar-border: hsl(0, 0%, 90%); /* #e5e5e5 */
+  --sidebar-ring: hsl(222, 80%, 51%); /* #1f5ae6 */
 }
 
 .dark {
@@ -157,6 +158,10 @@
 }
 
 @layer base {
+  :root {
+    --primary: 221 83% 53%; /* The blue-600 from the design */
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -169,15 +174,16 @@
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
     }
   }
   html {
-    @apply font-sans;
+    @apply font-primary scroll-pt-16 scroll-smooth!;
   }
 }
 
@@ -195,8 +201,16 @@
   /* Faint grid behind hero and diagram canvases. */
   .bg-grid {
     background-image:
-      linear-gradient(to right, color-mix(in oklab, var(--border) 80%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklab, var(--border) 80%, transparent) 1px, transparent 1px);
+      linear-gradient(
+        to right,
+        color-mix(in oklab, var(--border) 80%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--border) 80%, transparent) 1px,
+        transparent 1px
+      );
     background-size: 32px 32px;
   }
   /* Moving dashes on diagram links; switched off by prefers-reduced-motion above. */
@@ -236,7 +250,11 @@
   /* Pipeline connectors: dashes moving in the direction of the work. */
   .flow-x,
   .flow-y {
-    background-image: repeating-linear-gradient(var(--flow-dir, 90deg), var(--brand-teal) 0 6px, transparent 6px 12px);
+    background-image: repeating-linear-gradient(
+      var(--flow-dir, 90deg),
+      var(--brand-teal) 0 6px,
+      transparent 6px 12px
+    );
     animation: flow 1s linear infinite;
   }
   .flow-x {
