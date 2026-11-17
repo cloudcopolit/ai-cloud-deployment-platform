@@ -82,7 +82,7 @@ export function ConnectCard() {
       {/* Action Area */}
       <div className="flex flex-col items-center">
         <Button asChild className="h-14 w-full gap-2 text-base font-semibold">
-          <Link href={`${process.env.NEXT_PUBLIC_API_URL}/github`}>
+          <Link href="/api/auth/login">
             <Image
               src={githubIcon}
               alt="github icon"
