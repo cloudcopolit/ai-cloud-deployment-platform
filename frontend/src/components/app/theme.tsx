@@ -6,7 +6,7 @@ import { useSyncExternalStore } from 'react'
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
-    <NextThemes attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <NextThemes attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
       {children}
     </NextThemes>
   )
@@ -24,7 +24,11 @@ const subscribe = () => () => {}
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   // next-themes only knows the theme after hydration
-  const mounted = useSyncExternalStore(subscribe, () => true, () => false)
+  const mounted = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false
+  )
   return (
     <div role="radiogroup" aria-label="Color theme" className="flex rounded-lg border p-0.5">
       {OPTIONS.map(({ value, label, Icon }) => {
