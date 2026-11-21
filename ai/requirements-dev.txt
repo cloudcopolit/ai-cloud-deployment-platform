@@ -1,5 +1,5 @@
 # Shared static-analysis tools that CI installs for every AI project.
 # Each project declares its own runtime and test dependencies (including pytest)
 # in its own pyproject.toml or requirements.txt. See ai/README.md.
-mypy==2.4.0
-ruff==0.16.10
+mypy==2.4.1
+ruff==0.17.5
